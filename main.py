@@ -1,13 +1,36 @@
 from llm import stock_analysis_prompt, suggestion_prompt
-import llm
+from llm import LLM
 import options
+import utils
 
 
 def main():
-	pass
+	expert = LLM()
+	ticker = "AAPL"  # You can prompt user later or pass as arg
+	expiration = 30 * 3 # 3 months
+
+	try:
+		chain = options.fetch_options_chain(ticker, expiration=expiration)
+	except Exception as e:
+		print(f"Error fetching options: {e}")
+		return
+
+	filtered = options.filter_conservative_calls(chain)
+
+	if filtered.empty:
+		print("No conservative covered calls found.")
+		return
+	
+	stock_fundamentals = options.get_stock_fundamentals(ticker, text_format=True)
+	
+	prompt = suggestion_prompt.format(ticker=ticker, 
+								   options_chain=filtered.to_string(index=False), 
+								   stock_fundamentals=stock_fundamentals)
+	response = expert.ask(prompt)
+	utils.pretty_print("Stock Analysis", response)
 
 def test():
-	expert = llm.LLM()
+	expert = LLM()
 	# 1: Load & filter options
 	chain = options.get_mock_options_chain()
 	filtered = options.filter_conservative_calls(chain)
@@ -19,5 +42,5 @@ def test():
 
 
 if __name__ == "__main__":
-	test()
-	# main()
+	# test()
+	main()

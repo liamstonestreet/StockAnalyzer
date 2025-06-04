@@ -13,22 +13,22 @@ For the stock with this ticker: '{stock}', answer the following questions with t
 """
 
 suggestion_prompt = """
-You are a conservative stock options trading expert.
-
-Here is a filtered covered call options chain:
+Consider the company with this ticker: {ticker}.
+Here is a filtered covered call options chain for this company:
 
 {options_chain}
 
-Pick the best contract to sell based on delta, premium, and time to expiration. 
+Additionally, here are the stock fundamentals for this company:
+
+{stock_fundamentals}
+
+With this information, pick the best 2 to 3 contracts to sell based on delta, premium, and time to expiration. 
 Explain your reasoning in plain English.
 """
 
-in_progress = """
-What is the lowest market price analyst projected in a year, and highest analyst projected in one year? Format your output exactly like this: "<high>, <average>, <low>"
-"""
 
 system_instruction = """
-You are an expert in understanding the stock market and covered calls.
+You are a conservative stock options trading expert.
 """
 
 class LLM:
