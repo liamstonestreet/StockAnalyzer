@@ -1,12 +1,13 @@
-from llm import stock_analysis_prompt, suggestion_prompt
-from llm import LLM
+from llm import *
 import options
 import utils
+from prompt import *
 
 
 def main():
 	expert = LLM()
-	ticker = "AAPL"  # You can prompt user later or pass as arg
+	ticker = "NVDA"  # You can prompt user later or pass as arg
+	strategy = "In between conservative and aggressive"
 	expiration = 30 * 3 # 3 months
 
 	try:
@@ -25,7 +26,8 @@ def main():
 	
 	prompt = suggestion_prompt.format(ticker=ticker, 
 								   options_chain=filtered.to_string(index=False), 
-								   stock_fundamentals=stock_fundamentals)
+								   stock_fundamentals=stock_fundamentals,
+								   stragety=strategy)
 	response = expert.ask(prompt)
 	utils.pretty_print("Stock Analysis", response)
 
