@@ -4,45 +4,92 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 
-def fetch_options_chain(ticker: str, expiration: str = None):
-	"""Fetches call options for a stock and expiration date from Yahoo."""
-	"""Finds the call options that expire at given expiration date or soonest afterwards."""
+import yfinance as yf
+import pandas as pd
+from datetime import datetime, timedelta
+
+def fetch_options_chain(ticker: str, first_expiration=30, last_expiration=None):
+	"""
+	Fetch call options for a stock across all expiration dates within the given range.
+
+	Arguments:
+	- ticker: str, stock ticker
+	- first_expiration: str | int | None, earliest expiration date (e.g. '2024-06-15' or 30 for 30 days from today)
+	- last_expiration: str | int | None, latest expiration date (e.g. '2024-09-01' or 90 for 90 days from today)
+
+	Returns:
+	- DataFrame of call options within the expiration range
+	"""
 	stock = yf.Ticker(ticker)
 	available_dates = stock.options
 	if not available_dates:
 		raise ValueError("No options available for this ticker.")
 
-	# Handle expiration as int (days from today)
-	if isinstance(expiration, int):
-		target_date = (datetime.today() + timedelta(days=expiration)).date()
-		# Choose the next available expiration on or after that date
-		expiration = next((d for d in available_dates if pd.to_datetime(d).date() >= target_date), available_dates[-1])
+	# Convert to datetime for filtering
+	available_dates_dt = [pd.to_datetime(d).date() for d in available_dates]
 
-	# Use soonest expiration if none provided
-	expiration = expiration or available_dates[0]
+	# Set last_expiration to first_expiration if not provided
+	if last_expiration is None:
+		last_expiration = first_expiration
 
-	opt_chain = stock.option_chain(expiration)
-	calls = opt_chain.calls
+	# Convert int-based expirations to actual dates
+	today = datetime.today().date()
+	if isinstance(first_expiration, int):
+		first_expiration = today + timedelta(days=first_expiration)
+	if isinstance(last_expiration, int):
+		last_expiration = today + timedelta(days=last_expiration)
 
-	# Add rough delta estimate (mock for now)
-	calls["delta"] = calls["inTheMoney"].apply(lambda itm: 0.6 if itm else 0.2)
-	calls["expiration"] = pd.to_datetime(expiration)
-	calls["days_to_expiration"] = (calls["expiration"] - pd.Timestamp.now()).dt.days
+	# Default to full available range if None
+	first_expiration = pd.to_datetime(first_expiration).date() if first_expiration else available_dates_dt[0]
+	last_expiration = pd.to_datetime(last_expiration).date() if last_expiration else available_dates_dt[-1]
 
-	return calls[["strike", "lastPrice", "delta", "expiration", "days_to_expiration"]].rename(columns={
+	# Filter expiration dates in range
+	expirations_in_range = [
+		str(date) for date in available_dates_dt
+		if first_expiration <= date <= last_expiration
+	]
+
+	if not expirations_in_range:
+		raise ValueError("No expirations found in the specified range.")
+
+	all_calls = []
+	for exp in expirations_in_range:
+		try:
+			opt_chain = stock.option_chain(exp)
+			calls = opt_chain.calls
+			calls["expiration"] = pd.to_datetime(exp)
+			calls["days_to_expiration"] = (calls["expiration"] - pd.Timestamp.now()).dt.days
+			all_calls.append(calls)
+		except Exception as e:
+			print(f"Skipping {exp} due to error: {e}")
+
+	if not all_calls:
+		raise ValueError("Failed to retrieve any call data.")
+
+	result = pd.concat(all_calls, ignore_index=True)
+	return result[["strike", "lastPrice", "expiration", "days_to_expiration"]].rename(columns={
 		"lastPrice": "premium"
 	})
 
-def filter_conservative_calls(df, min_premium=0.5, max_delta=1, max_days=6 * 30):
+
+def filter_conservative_calls(df, min_premium=0.5, max_days=6 * 30):
 	"""Filter calls based on Dad's rules! (Conservative, for the most part)"""
 	"""For now, we ignore filtering on delta by using max_delta=1. We can add it once we scrape the delta data."""
 	return df[
 		(df["premium"] >= min_premium) &
-		(df["delta"] <= max_delta) &
 		(df["days_to_expiration"] <= max_days)
-	].sort_values(by="delta").drop(["delta"], axis=1)
+	].sort_values(by="premium", ascending=False).reset_index(drop=True)
 
 # options.py
+
+# expiration_date must be "%d/%m/%Y" format, e.g. "30/12/2023"
+def filter_calls(df, strike_price, expiration_date=None):
+	"""Filter calls based on strike price and expiration date."""
+	if strike_price is not None:
+		df = df[df["strike"] >= strike_price]
+	if expiration_date is not None:
+		df = df[df["expiration"] == pd.to_datetime(expiration_date)]
+	return df
 
 def get_stock_fundamentals(ticker: str, text_format=True):
 	stock = yf.Ticker(ticker)
@@ -64,7 +111,7 @@ def get_stock_fundamentals(ticker: str, text_format=True):
 	else:
 		return fundamentals
 
-def get_fundamentals_text(fundamentals: dict,ticker: str):
+def get_fundamentals_text(fundamentals: dict, ticker: str):
 	return f"""
 		Stock Fundamentals for {ticker.upper()}:
 		- Current Price: ${fundamentals['price']:,}
