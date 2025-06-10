@@ -14,7 +14,24 @@ st.set_page_config(page_title="Covered Call Viewer", layout="wide")
 st.title("\U0001F4C8 Covered Call Viewer")
 
 # User inputs
-ticker = st.text_input("Stock Ticker", value="AAPL")
+# ticker = st.text_input("Stock Ticker", value="AAPL")
+
+col_ticker, col_price = st.columns([3, 2])
+with col_ticker:
+    ticker = st.text_input("Stock Ticker", value="AAPL")
+
+# Show current market price (with spinner while loading)
+market_price = None
+with col_price:
+    if ticker:
+        with st.spinner("Fetching market price..."):
+            market_price = utils.get_market_price(ticker)
+        if market_price:
+            st.markdown(f"**Current Price:** ${market_price:.2f}")
+        else:
+            st.warning("Unable to fetch market price.")
+
+
 col1, col2 = st.columns(2)
 with col1:
     first_exp = st.number_input("First Expiration (days from now)", min_value=0, value=30)
