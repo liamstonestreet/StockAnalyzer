@@ -27,11 +27,17 @@ def get_market_price(ticker):
     stock = yf.Ticker(ticker)
     return stock.history(period="1d")['Close'].iloc[-1]
 
-def compute_aarr(num_shares, initial_market_price, strike_price, premium, expiry=30, final_market_price=None, strike_out=True):
+def compute_aarr(num_shares, initial_market_price, strike_price, premium, expiry, strike_out=None, final_market_price=None):
     if num_shares % 100 != 0:
         raise ValueError("Number of shares must be a multiple of 100 for AARR calculation.")
 
     start_money = initial_market_price * num_shares
+
+    # Set strike-out condition based on final_market_price
+    if final_market_price is not None:
+        strike_out = final_market_price >= strike_price
+    else:
+        strike_out = True  # Default to True if final_market_price is not provided
 
     if strike_out:
         # Shares are called away at strike price; you receive strike + premium
@@ -42,10 +48,14 @@ def compute_aarr(num_shares, initial_market_price, strike_price, premium, expiry
             final_market_price = initial_market_price
         end_money = (final_market_price + premium) * num_shares
 
-    gain = end_money - start_money
-    aarr = ((end_money / start_money) ** (365 / expiry) - 1) * 100  # Annualized return in %
+    net_gain = end_money - start_money
 
-    return aarr, gain, start_money, end_money
+    # i need 12 / # months taken by: (date the shares were bought (we assume this is the same day as sell date) to date you get your money from the covered call striking out)
+    # all (99%) of covered calls expire friday. people get the strike-out money on the next monday, so we add 3 to expiry date.
+    months_to_cash = (expiry + 3) / 30  # Convert days to months. +3 accounts for weekend delay in cashing out.
+    aarr_simple = (net_gain / start_money * 100) * (12 / (months_to_cash))  # Simple return in %
+    aarr_compound = ((end_money / start_money) ** (365 / (expiry + 3)) - 1) * 100
+    return aarr_simple, net_gain, start_money, end_money
 
 
     

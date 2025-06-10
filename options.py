@@ -2,11 +2,7 @@
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
-
-
-import yfinance as yf
-import pandas as pd
-from datetime import datetime, timedelta
+import utils
 
 def fetch_options_chain(ticker: str, first_expiration=30, last_expiration=None):
 	"""
@@ -58,6 +54,7 @@ def fetch_options_chain(ticker: str, first_expiration=30, last_expiration=None):
 			opt_chain = stock.option_chain(exp)
 			calls = opt_chain.calls
 			calls["expiration"] = pd.to_datetime(exp)
+			# figure out why there needs to be + 1 here
 			calls["days_to_expiration"] = (calls["expiration"] - pd.Timestamp.now()).dt.days
 			all_calls.append(calls)
 		except Exception as e:
@@ -67,7 +64,20 @@ def fetch_options_chain(ticker: str, first_expiration=30, last_expiration=None):
 		raise ValueError("Failed to retrieve any call data.")
 
 	result = pd.concat(all_calls, ignore_index=True)
-	return result[["strike", "lastPrice", "expiration", "days_to_expiration"]].rename(columns={
+	# add AARR column (use computation)
+	result["aarr"] = result.apply(
+		lambda row: utils.compute_aarr(
+			num_shares=100,  # Assuming 1 contract = 100 shares
+			initial_market_price=utils.get_market_price(ticker),
+			strike_price=row["strike"],
+			premium=row["lastPrice"],
+			expiry=row["days_to_expiration"],
+			final_market_price=None,  # Assume shares are called away
+			strike_out=True
+		)[0], axis=1
+	)
+
+	return result[["strike", "lastPrice", "expiration", "days_to_expiration", "aarr"]].rename(columns={
 		"lastPrice": "premium"
 	})
 

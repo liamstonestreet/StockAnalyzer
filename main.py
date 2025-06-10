@@ -1,6 +1,6 @@
 from llm import *
-import options
-import utils
+from options import *
+from utils import *
 from prompt import *
 
 
@@ -11,18 +11,18 @@ def main():
 	expiration = 30 * 3 # 3 months
 
 	try:
-		chain = options.fetch_options_chain(ticker, first_expiration=expiration)
+		chain = fetch_options_chain(ticker, first_expiration=expiration)
 	except Exception as e:
 		print(f"Error fetching options: {e}")
 		return
 
-	filtered = options.filter_conservative_calls(chain)
+	filtered = filter_conservative_calls(chain)
 
 	if filtered.empty:
 		print("No conservative covered calls found.")
 		return
 	
-	stock_fundamentals = options.get_stock_fundamentals(ticker, text_format=True)
+	stock_fundamentals = get_stock_fundamentals(ticker, text_format=True)
 	
 	prompt = suggestion_prompt.format(ticker=ticker, 
 								   options_chain=filtered.to_string(index=False), 
@@ -34,28 +34,34 @@ def main():
 def test():
 	expert = LLM()
 	# 1: Load & filter options
-	chain = options.get_mock_options_chain()
-	filtered = options.filter_conservative_calls(chain)
+	ticker = "AAPL"  # Example ticker
+	chain = fetch_options_chain(ticker, first_expiration=30, last_expiration=90)
+	filtered = filter_conservative_calls(chain)
 	prompt = suggestion_prompt.format(options_chain=filtered.to_string(index=False))
 	# 2: Get LLM output
 	response = expert.ask(prompt)
 	print("\n=== LLM Suggestion ===")
 	print(response)
 
-def test2():
-	ticker = "AAPL"
-	first_exp = 30 
-	last_exp = 90
-	num_shares = 100
-	market_price = utils.get_market_price(ticker)
-	strike_price = 150  
-	chain = options.fetch_options_chain(ticker, first_expiration=first_exp, last_expiration=last_exp)
-	filtered = options.filter_calls(chain, strike_price=strike_price)
+def compute_returns():
+	ticker = "AEM"
+	first_exp = 24 
+	last_exp = 24
+	# num_shares = 100
+	num_contracts = 1
+	# initial_market_price = utils.get_market_price(ticker)
+	initial_market_price = 117.78
+	strike_price = 116 
+	final_market_price = None  # Assume shares are called away at this price
+	chain = fetch_options_chain(ticker, first_expiration=first_exp, last_expiration=last_exp)
+	filtered = filter_calls(chain, strike_price=strike_price)
 	covered_call = filtered.iloc[0]  # Just take the first one for testing
-	premium = covered_call['premium']
-	aarr, gain, start, end = utils.compute_aarr(num_shares=num_shares,
-												 initial_market_price=market_price,
-												 strike_price=covered_call['strike'],
+	# strike_price = covered_call['strike']
+	# premium = covered_call['premium']
+	premium = 5.44
+	aarr, gain, start, end = utils.compute_aarr(num_shares=num_contracts * 100,
+												 initial_market_price=initial_market_price,
+												 strike_price=strike_price,
 												 premium=premium,
 												 expiry=covered_call['days_to_expiration'],
 												 final_market_price=None,  # Assume shares are called away
@@ -63,12 +69,12 @@ def test2():
 	# Print all the results
 	print(f"Ticker: {ticker}")
 	print(f"Covered Call: ${covered_call['strike']} strike, ${covered_call['premium']} premium")
-	print(f"Shares: {num_shares}")
+	print(f"Shares: {num_contracts * 100} ({num_contracts} contract = {num_contracts * 100} shares)")
 	print(f"Expiry: {covered_call['days_to_expiration']} days")
+	print(f"Strike Out: {'Yes' if final_market_price is None else 'No'}")
 	print(f"Start Money: ${start:.2f}")
 	print(f"End Money: ${end:.2f}")
 	print(f"Gain: ${gain:.2f}")
-	# Print the annualized return
 	print(f"AARR: {aarr:.2f}%")
 	
 
@@ -76,4 +82,4 @@ def test2():
 if __name__ == "__main__":
 	# test()
 	# main()
-	test2()
+	compute_returns()
