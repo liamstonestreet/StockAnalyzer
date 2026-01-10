@@ -4,9 +4,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 import utils
 
-def fetch_options_chain(ticker: str, first_expiration=30, last_expiration=None):
+def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, expiration_range=30):
 	"""
-	Fetch call options for a stock across all expiration dates within the given range.
+	Fetch call options for a stock across all expiration dates within the given range [first,last].
 
 	Arguments:
 	- ticker: str, stock ticker
@@ -26,7 +26,8 @@ def fetch_options_chain(ticker: str, first_expiration=30, last_expiration=None):
 
 	# Set last_expiration to first_expiration if not provided
 	if last_expiration is None:
-		last_expiration = first_expiration
+		# last_expiration = first_expiration
+		last_expiration = first_expiration + timedelta(days=expiration_range)
 
 	# Convert int-based expirations to actual dates
 	today = datetime.today().date()
@@ -45,7 +46,7 @@ def fetch_options_chain(ticker: str, first_expiration=30, last_expiration=None):
 		if first_expiration <= date <= last_expiration
 	]
 
-	if not expirations_in_range:
+	if len(expirations_in_range) == 0 or not expirations_in_range:
 		raise ValueError("No expirations found in the specified range.")
 
 	all_calls = []

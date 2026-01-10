@@ -7,7 +7,7 @@ import utils
 
 # Debug options chain
 ticker = "AEM"
-chain = options.fetch_options_chain(ticker, first_expiration=30, last_expiration=90)
+chain = options.fetch_options_chain(ticker, first_expiration=30, expiration_range=45)
 filtered = options.filter_conservative_calls(chain)
 fundamentals = options.get_stock_fundamentals(ticker)
 

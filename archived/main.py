@@ -1,17 +1,20 @@
-from llm import *
+from archived.llm import *
 from options import *
 from utils import *
 from prompt import *
-
 
 def main():
 	expert = LLM()
 	ticker = "NVDA"  # You can prompt user later or pass as arg
 	strategy = "In between conservative and aggressive"
-	expiration = 30 * 3 # 3 months
+	first_expiration = 30 * 1
+	last_expiration = 30 * 3
 
 	try:
-		chain = fetch_options_chain(ticker, first_expiration=expiration)
+		chain = fetch_options_chain(ticker, first_expiration=first_expiration, last_expiration=last_expiration)
+		if chain.empty:
+			print("No options available for this ticker (Chain is empty)")
+			return
 	except Exception as e:
 		print(f"Error fetching options: {e}")
 		return
@@ -19,7 +22,7 @@ def main():
 	filtered = filter_conservative_calls(chain)
 
 	if filtered.empty:
-		print("No conservative covered calls found.")
+		print("No conservative covered calls found. (Filtered is empty)")
 		return
 	
 	stock_fundamentals = get_stock_fundamentals(ticker, text_format=True)
@@ -54,6 +57,11 @@ def compute_returns():
 	strike_price = 116 
 	final_market_price = None  # Assume shares are called away at this price
 	chain = fetch_options_chain(ticker, first_expiration=first_exp, last_expiration=last_exp)
+
+	if chain.empty:
+		print("No options available for this ticker (Chain is empty)")
+		return
+
 	filtered = filter_calls(chain, strike_price=strike_price)
 	covered_call = filtered.iloc[0]  # Just take the first one for testing
 	# strike_price = covered_call['strike']
@@ -81,5 +89,5 @@ def compute_returns():
 
 if __name__ == "__main__":
 	# test()
-	# main()
-	compute_returns()
+	main()
+	# compute_returns()
