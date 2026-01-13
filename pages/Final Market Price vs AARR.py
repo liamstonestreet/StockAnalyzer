@@ -18,7 +18,8 @@ if not call:
     st.stop()
 
 st.subheader(f"{ticker.upper()} Covered Call")
-st.write(f"**Strike Price:** \\${call['strike']:.2f}  \n"
+st.write(f"**Current Stock Price:** ${initial_price:.2f}  \n"
+         f"**Strike Price:** \\${call['strike']:.2f}  \n"
          f"**Premium:** ${call['premium']:.2f}  \n"
          f"**Expiration:** {pd.to_datetime(call['expiration']).date()}  \n"
          f"**Days to Expiration:** {call['days_to_expiration']}")
@@ -61,6 +62,7 @@ fig.add_trace(go.Scatter(
     hovertemplate='Price: $%{x:.2f}<br>AARR: %{y:.2f}%'
 ))
 
+# Vertical line at strike price
 fig.add_vline(
     x=strike,
     line=dict(color='gray', dash='dash'),
@@ -68,6 +70,7 @@ fig.add_vline(
     annotation_position="top right"
 )
 
+# Green line at AARR ~ 5%
 fig.add_vline(
     x=x_five,
     line=dict(color='green', dash='dot'),
@@ -75,6 +78,7 @@ fig.add_vline(
     annotation_position="bottom right"
 )
 
+# Red line at AARR ~ 0%
 fig.add_vline(
     x=x_zero,
     line=dict(color='red', dash='dot'),
@@ -82,17 +86,22 @@ fig.add_vline(
     annotation_position="top left"
 )
 
+y_pad = (max(y_aarr) - min(y_aarr)) * 0.1
 fig.update_layout(
     title="AARR vs Final Market Price",
     xaxis_title="Final Market Price at Expiry",
     yaxis_title="AARR (%)",
     xaxis_range=[x_neg_five, x_prices[-1]],
+    yaxis_range=[min(y_aarr) - y_pad, max(y_aarr) + y_pad],
     height=500,
-    margin=dict(l=40, r=40, t=50, b=40),
+    margin=dict(l=60, r=60, t=50, b=40),
     hovermode="x unified",
     template="plotly_white"
 )
 
+# fig.set_width(400)
+
+# st.plotly_chart(fig, use_container_width=True)
 st.plotly_chart(fig, use_container_width=True)
 
 if st.button("← Back to Calls"):
