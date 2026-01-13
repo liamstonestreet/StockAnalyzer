@@ -16,3 +16,4 @@ A program that analyzes stocks and recommends covered calls with fine-tuned para
 1. Complete basic Streamlit UI to analyze AARR of covered calls and Final Market Price vs AARR graphs.
 2. Implement Shadow Premium feature
 3. Make the y-range on the plot page more accurate, less in the negatives.
+4. Save state of the search details (ticker, filters, etc) on Home page when back button is clicked on Graph page. Right now, only the call search results are saved.

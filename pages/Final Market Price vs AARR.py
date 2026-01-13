@@ -39,7 +39,8 @@ expiry = call['days_to_expiration']
 num_shares = 100
 
 # Generate x_prices from 50% to 300% of current price
-x_prices = np.linspace(initial_price * 0.5, initial_price * 1.5, 300)
+# NOTE x range is determined here!
+x_prices = np.linspace(initial_price * 0.5, initial_price * 1.5, 300) # TODO experiment with 300
 y_aarr_covered = []
 y_aarr_hold = []
 
@@ -104,9 +105,14 @@ fig.add_trace(go.Scatter(
     hovertemplate='Price: $%{x:.2f}<br>AARR: %{y:.2f}%<extra></extra>'
 ))
 
+# Dynamic x-axis range with padding
+# x_min = min(min(x_prices), initial_price * 0.5)
+# x_max = max(max(x_prices), initial_price * 1.5)
+# x_pad = (x_max - x_min) * 0.1
+
 # Dynamic y-axis range with padding
 y_min = min(min(y_aarr_covered), min(y_aarr_hold))
-y_max = max(max(y_aarr_covered), max(y_aarr_hold))
+y_max = min(max(y_aarr_covered), max(y_aarr_hold))
 y_pad = (y_max - y_min) * 0.1
 
 # Probability density curve (fill between lines, not separate trace)
@@ -172,22 +178,12 @@ fig.add_hline(
     annotation_position="right"
 )
 
-# Zero AARR line (add to legend)
-# fig.add_trace(go.Scatter(
-#     x=[x_prices[0], x_prices[-1]],
-#     y=[0, 0],
-#     mode='lines',
-#     name='Break-even (0% Return)',
-#     line=dict(color='purple', dash='dot', width=1),
-#     hovertemplate=f'Break-even: ${breakeven:.2f}<extra></extra>',
-#     showlegend=True
-# ))
-
 fig.update_layout(
     title="AARR vs Final Market Price at Expiry",
     xaxis_title="Final Market Price at Expiry",
     yaxis_title="AARR (%)",
-    yaxis=dict(range=[y_min - y_pad, y_max + y_pad], dtick=25),
+    #xaxis=dict(range=[x_min - x_pad, x_max + x_pad], dtick=25),
+    yaxis=dict(range=[y_min - y_pad, y_max + 2*y_pad], dtick=25),
     height=600,
     margin=dict(l=60, r=60, t=80, b=60),
     hovermode="x unified",
@@ -253,40 +249,6 @@ if volatility:
 
 # Key insights
 st.divider()
-# st.write("**Key Insights:**")
-
-# # Calculate position values
-# initial_investment = initial_price * num_shares
-# premium_received = premium * num_shares
-# strike_proceeds = strike * num_shares if strike < initial_price else 0
-# total_received = premium_received + (strike_proceeds if strike_proceeds > 0 else initial_price * num_shares)
-# net_gain = total_received - initial_investment
-
-# st.write(f"- 💵 **Initial investment:** \\${initial_investment:,.2f} ({num_shares} shares @ \\${initial_price:.2f})")
-# st.write(f"- 💰 **Premium collected:** \\${premium_received:,.2f}")
-
-# if strike < initial_price:
-#     st.write(f"- 📤 **Proceeds from sale at strike:** \\${strike_proceeds:,.2f}")
-#     st.write(f"- 💸 **Total received:** \\${total_received:,.2f}")
-#     if net_gain > 0:
-#         st.write(f"- ✅ **Net gain:** \\${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
-#     else:
-#         st.write(f"- ❌ **Net loss:** \\${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
-
-# if strike < initial_price:
-#     total_cash = (strike + premium) * num_shares
-#     st.write(f"- 💰 You'll receive **\\${total_cash:,.0f}** total (\\${premium * num_shares:,.0f} premium + \\${strike * num_shares:,.0f} from sale)")
-#     st.write(f"- ⚠️ You're selling shares worth **\\${initial_price * num_shares:,.0f}** for **\\${strike * num_shares:,.0f}**")
-#     st.write(f"- ✅ But the \\${premium:.2f}/share premium makes up for it")
-    
-# if x_breakeven_vs_hold > initial_price:
-#     st.write(f"- 📈 Covered call beats holding if stock stays below **\\${x_breakeven_vs_hold:.2f}**")
-# else:
-#     st.warning("⚠️ Holding stock may outperform at most realistic price points")
-    
-# st.write(f"- 🛡️ Downside protection: Stock can drop to **\\${x_zero:.2f}** ({((x_zero - initial_price) / initial_price * 100):.1f}%) before you lose money")
-# st.write(f"- 🎯 Optimal expiry price for max AARR: **\\${x_max_aarr:.2f}** ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% change)")
-
 st.write("**Key Insights:**")
 
 # Calculate position values
@@ -313,3 +275,16 @@ if x_breakeven_vs_hold > initial_price:
     st.write(f"- 📈 **Strategy:** Beats holding if price stays below \\${x_breakeven_vs_hold:.2f}")
 else:
     st.warning("⚠️ Holding stock may outperform at most price points")
+
+# Back button
+if st.button("← Back to Calls"):
+    st.switch_page("Home.py")
+
+# st.divider()
+# col1, col2, col3 = st.columns(3)
+# with col1:
+#     st.write(" ")
+# with col2:
+#     st.button("Go Back", on_click=go_back)
+# with col3:
+#     st.write(" ")
