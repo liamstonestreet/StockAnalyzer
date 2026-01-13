@@ -39,7 +39,7 @@ expiry = call['days_to_expiration']
 num_shares = 100
 
 # Generate x_prices from 50% to 300% of current price
-x_prices = np.linspace(initial_price * 0.5, initial_price * 3, 300)
+x_prices = np.linspace(initial_price * 0.5, initial_price * 1.5, 300)
 y_aarr_covered = []
 y_aarr_hold = []
 
@@ -187,7 +187,7 @@ fig.update_layout(
     title="AARR vs Final Market Price at Expiry",
     xaxis_title="Final Market Price at Expiry",
     yaxis_title="AARR (%)",
-    yaxis=dict(range=[y_min - y_pad, y_max + y_pad]),
+    yaxis=dict(range=[y_min - y_pad, y_max + y_pad], dtick=25),
     height=600,
     margin=dict(l=60, r=60, t=80, b=60),
     hovermode="x unified",
@@ -253,6 +253,40 @@ if volatility:
 
 # Key insights
 st.divider()
+# st.write("**Key Insights:**")
+
+# # Calculate position values
+# initial_investment = initial_price * num_shares
+# premium_received = premium * num_shares
+# strike_proceeds = strike * num_shares if strike < initial_price else 0
+# total_received = premium_received + (strike_proceeds if strike_proceeds > 0 else initial_price * num_shares)
+# net_gain = total_received - initial_investment
+
+# st.write(f"- 💵 **Initial investment:** \\${initial_investment:,.2f} ({num_shares} shares @ \\${initial_price:.2f})")
+# st.write(f"- 💰 **Premium collected:** \\${premium_received:,.2f}")
+
+# if strike < initial_price:
+#     st.write(f"- 📤 **Proceeds from sale at strike:** \\${strike_proceeds:,.2f}")
+#     st.write(f"- 💸 **Total received:** \\${total_received:,.2f}")
+#     if net_gain > 0:
+#         st.write(f"- ✅ **Net gain:** \\${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
+#     else:
+#         st.write(f"- ❌ **Net loss:** \\${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
+
+# if strike < initial_price:
+#     total_cash = (strike + premium) * num_shares
+#     st.write(f"- 💰 You'll receive **\\${total_cash:,.0f}** total (\\${premium * num_shares:,.0f} premium + \\${strike * num_shares:,.0f} from sale)")
+#     st.write(f"- ⚠️ You're selling shares worth **\\${initial_price * num_shares:,.0f}** for **\\${strike * num_shares:,.0f}**")
+#     st.write(f"- ✅ But the \\${premium:.2f}/share premium makes up for it")
+    
+# if x_breakeven_vs_hold > initial_price:
+#     st.write(f"- 📈 Covered call beats holding if stock stays below **\\${x_breakeven_vs_hold:.2f}**")
+# else:
+#     st.warning("⚠️ Holding stock may outperform at most realistic price points")
+    
+# st.write(f"- 🛡️ Downside protection: Stock can drop to **\\${x_zero:.2f}** ({((x_zero - initial_price) / initial_price * 100):.1f}%) before you lose money")
+# st.write(f"- 🎯 Optimal expiry price for max AARR: **\\${x_max_aarr:.2f}** ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% change)")
+
 st.write("**Key Insights:**")
 
 # Calculate position values
@@ -262,27 +296,20 @@ strike_proceeds = strike * num_shares if strike < initial_price else 0
 total_received = premium_received + (strike_proceeds if strike_proceeds > 0 else initial_price * num_shares)
 net_gain = total_received - initial_investment
 
-st.write(f"- 💵 **Initial investment:** \\${initial_investment:,.2f} ({num_shares} shares @ \\${initial_price:.2f})")
-st.write(f"- 💰 **Premium collected:** \\${premium_received:,.2f}")
+# Investment overview
+st.write(f"- 💵 **Investment:** \\${initial_investment:,.2f} ({num_shares} shares @ \\${initial_price:.2f})")
+st.write(f"- 💰 **Returns:** \\${total_received:,.2f} total (\\${premium_received:,.2f} premium + \
+         \\${strike_proceeds if strike_proceeds > 0 else initial_investment:,.2f} shares)")
 
-if strike < initial_price:
-    st.write(f"- 📤 **Proceeds from sale at strike:** \\${strike_proceeds:,.2f}")
-    st.write(f"- 💸 **Total received:** \\${total_received:,.2f}")
-    if net_gain > 0:
-        st.write(f"- ✅ **Net gain:** \\${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
-    else:
-        st.write(f"- ❌ **Net loss:** \\${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
-
-if strike < initial_price:
-    total_cash = (strike + premium) * num_shares
-    st.write(f"- 💰 You'll receive **\\${total_cash:,.0f}** total (\\${premium * num_shares:,.0f} premium + \\${strike * num_shares:,.0f} from sale)")
-    st.write(f"- ⚠️ You're selling shares worth **\\${initial_price * num_shares:,.0f}** for **\\${strike * num_shares:,.0f}**")
-    st.write(f"- ✅ But the \\${premium:.2f}/share premium makes up for it")
-    
-if x_breakeven_vs_hold > initial_price:
-    st.write(f"- 📈 Covered call beats holding if stock stays below **\\${x_breakeven_vs_hold:.2f}**")
+# Profit/loss and protection
+if net_gain > 0:
+    st.write(f"- ✅ **Net gain:** \\${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%) • Downside protected to \\${x_zero:.2f}")
 else:
-    st.warning("⚠️ Holding stock may outperform at most realistic price points")
-    
-st.write(f"- 🛡️ Downside protection: Stock can drop to **\\${x_zero:.2f}** ({((x_zero - initial_price) / initial_price * 100):.1f}%) before you lose money")
-st.write(f"- 🎯 Optimal expiry price for max AARR: **\\${x_max_aarr:.2f}** ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% change)")
+    st.write(f"- ❌ **Net loss:** \\${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%) • Downside protected to \\${x_zero:.2f}")
+
+# Optimal price and comparison
+st.write(f"- 🎯 **Max AARR:** \\${x_max_aarr:.2f} ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% move)")
+if x_breakeven_vs_hold > initial_price:
+    st.write(f"- 📈 **Strategy:** Beats holding if price stays below \\${x_breakeven_vs_hold:.2f}")
+else:
+    st.warning("⚠️ Holding stock may outperform at most price points")
