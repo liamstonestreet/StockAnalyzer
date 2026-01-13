@@ -18,7 +18,7 @@ if not call:
     st.stop()
 
 st.subheader(f"{ticker.upper()} Covered Call")
-st.write(f"**Current Stock Price:** ${initial_price:.2f}  \n"
+st.write(f"**Current Stock Price:** \\${initial_price:.2f}  \n"
          f"**Strike Price:** \\${call['strike']:.2f}  \n"
          f"**Premium:** ${call['premium']:.2f}  \n"
          f"**Expiration:** {pd.to_datetime(call['expiration']).date()}  \n"
