@@ -129,21 +129,27 @@ if volatility:
                 layer="below"
             )
 
-# Current price line
-fig.add_vline(
-    x=initial_price,
+# Current price line (add to legend)
+fig.add_trace(go.Scatter(
+    x=[initial_price, initial_price],
+    y=[y_min - y_pad, y_max + y_pad],
+    mode='lines',
+    name='Current Price',
     line=dict(color='red', dash='dash', width=1),
-    annotation_text=f"Current (${initial_price:.2f})",
-    annotation_position="top left"
-)
+    hovertemplate=f'Current: ${initial_price:.2f}<extra></extra>',
+    showlegend=True
+))
 
-# Strike price line
-fig.add_vline(
-    x=strike,
+# Strike price line (add to legend)
+fig.add_trace(go.Scatter(
+    x=[strike, strike],
+    y=[y_min - y_pad, y_max + y_pad],
+    mode='lines',
+    name='Strike Price',
     line=dict(color='gray', dash='dash', width=2),
-    annotation_text=f"Strike (${strike:.2f})",
-    annotation_position="top right"
-)
+    hovertemplate=f'Strike: ${strike:.2f}<extra></extra>',
+    showlegend=True
+))
 
 # Max AARR point
 fig.add_trace(go.Scatter(
@@ -161,10 +167,21 @@ fig.add_trace(go.Scatter(
 # Zero AARR line (breakeven)
 fig.add_hline(
     y=0,
-    line=dict(color='white', dash='dot', width=1),
+    line=dict(color='purple', dash='dot', width=1),
     annotation_text="0% Return",
     annotation_position="right"
 )
+
+# Zero AARR line (add to legend)
+# fig.add_trace(go.Scatter(
+#     x=[x_prices[0], x_prices[-1]],
+#     y=[0, 0],
+#     mode='lines',
+#     name='Break-even (0% Return)',
+#     line=dict(color='purple', dash='dot', width=1),
+#     hovertemplate=f'Break-even: ${breakeven:.2f}<extra></extra>',
+#     showlegend=True
+# ))
 
 fig.update_layout(
     title="AARR vs Final Market Price at Expiry",
@@ -246,29 +263,26 @@ total_received = premium_received + (strike_proceeds if strike_proceeds > 0 else
 net_gain = total_received - initial_investment
 
 st.write(f"- 💵 **Initial investment:** \\${initial_investment:,.2f} ({num_shares} shares @ \\${initial_price:.2f})")
-st.write(f"- 💰 **Premium collected:** ${premium_received:,.2f}")
+st.write(f"- 💰 **Premium collected:** \\${premium_received:,.2f}")
 
 if strike < initial_price:
-    st.write(f"- 📤 **Proceeds from sale at strike:** ${strike_proceeds:,.2f}")
-    st.write(f"- 💸 **Total received:** ${total_received:,.2f}")
+    st.write(f"- 📤 **Proceeds from sale at strike:** \\${strike_proceeds:,.2f}")
+    st.write(f"- 💸 **Total received:** \\${total_received:,.2f}")
     if net_gain > 0:
-        st.write(f"- ✅ **Net gain:** ${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
+        st.write(f"- ✅ **Net gain:** \\${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
     else:
-        st.write(f"- ❌ **Net loss:** ${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
+        st.write(f"- ❌ **Net loss:** \\${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%)")
 
 if strike < initial_price:
     total_cash = (strike + premium) * num_shares
-    st.write(f"- 💰 You'll receive **${total_cash:,.0f}** total (${premium * num_shares:,.0f} premium + ${strike * num_shares:,.0f} from sale)")
-    st.write(f"- ⚠️ You're selling shares worth **${initial_price * num_shares:,.0f}** for **${strike * num_shares:,.0f}**")
-    st.write(f"- ✅ But the ${premium:.2f}/share premium makes up for it")
+    st.write(f"- 💰 You'll receive **\\${total_cash:,.0f}** total (\\${premium * num_shares:,.0f} premium + \\${strike * num_shares:,.0f} from sale)")
+    st.write(f"- ⚠️ You're selling shares worth **\\${initial_price * num_shares:,.0f}** for **\\${strike * num_shares:,.0f}**")
+    st.write(f"- ✅ But the \\${premium:.2f}/share premium makes up for it")
     
 if x_breakeven_vs_hold > initial_price:
-    st.write(f"- 📈 Covered call beats holding if stock stays below **${x_breakeven_vs_hold:.2f}**")
+    st.write(f"- 📈 Covered call beats holding if stock stays below **\\${x_breakeven_vs_hold:.2f}**")
 else:
     st.warning("⚠️ Holding stock may outperform at most realistic price points")
     
-st.write(f"- 🛡️ Downside protection: Stock can drop to **${x_zero:.2f}** ({((x_zero - initial_price) / initial_price * 100):.1f}%) before you lose money")
-st.write(f"- 🎯 Optimal expiry price for max AARR: **${x_max_aarr:.2f}** ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% change)")
-
-if st.button("← Back to Calls"):
-    st.switch_page("Home.py")
+st.write(f"- 🛡️ Downside protection: Stock can drop to **\\${x_zero:.2f}** ({((x_zero - initial_price) / initial_price * 100):.1f}%) before you lose money")
+st.write(f"- 🎯 Optimal expiry price for max AARR: **\\${x_max_aarr:.2f}** ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% change)")
