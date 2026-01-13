@@ -85,7 +85,7 @@ if "min_aarr" not in st.session_state:
 if "max_aarr" not in st.session_state:
     st.session_state["max_aarr"] = 200.0
 if "call_type_filter" not in st.session_state:
-    st.session_state["call_type_filter"] = ["🔴 Deep ITM", "🟠 ITM", "🟡 ATM"]
+    st.session_state["call_type_filter"] = ["🔴 Deep ITM", "🟠 ITM", "🟡 ATM", "🟢 OTM", "🟢 Deep OTM"]
 if "sort_by" not in st.session_state:
     st.session_state["sort_by"] = "AARR (Highest)"
 
@@ -190,17 +190,6 @@ if st.button("🔎 Fetch Covered Calls", type="primary", use_container_width=Tru
             # Safety = premium yield + inverse of how far strike is from current price
             if volatility:
                 # Calculate safety score using probability-weighted analysis
-                # chain['safety_score'] = chain.apply(
-                #     lambda row: utils.calculate_safety_score(
-                #         strike=row['strike'],
-                #         premium=row['premium'],
-                #         market_price=market_price,
-                #         days_to_expiry=row['days_to_expiration'],
-                #         volatility=volatility
-                #     ),
-                #     axis=1
-                # )
-
                 # Calculate raw safety scores
                 chain['safety_score_raw'] = chain.apply(
                     lambda row: utils.calculate_safety_score(
@@ -212,14 +201,14 @@ if st.button("🔎 Fetch Covered Calls", type="primary", use_container_width=Tru
                     ),
                     axis=1
                 )
-
                 # Normalize to 0-10 scale
                 chain['safety_score'] = chain['safety_score_raw'].apply(
                     lambda x: utils.normalize_safety_score(x, chain['safety_score_raw'].values)
                 )
-                # Save raw scores to session state for graph page normalization
+
+                # Store BOTH raw and normalized
                 st.session_state["all_safety_scores_raw"] = chain['safety_score_raw'].values
-                st.session_state["all_safety_scores"] = chain['safety_score'].values
+                st.session_state["all_safety_scores_normalized"] = chain['safety_score'].values  # Add this
 
             
             # Apply call type filter
@@ -241,10 +230,17 @@ if st.button("🔎 Fetch Covered Calls", type="primary", use_container_width=Tru
                 chain = chain[chain["aarr"] <= max_aarr]
             
             # Sort
+            # if sort_by == "AARR (Highest)":
+            #     chain = chain.sort_values("aarr", ascending=False)
+            # elif sort_by == "AARR (Lowest)":
+            #     chain = chain.sort_values("aarr", ascending=True)
+            # Sort
             if sort_by == "AARR (Highest)":
-                chain = chain.sort_values("aarr", ascending=False)
+                sort_col = 'expected_aarr' if 'expected_aarr' in chain.columns else 'aarr'
+                chain = chain.sort_values(sort_col, ascending=False)
             elif sort_by == "AARR (Lowest)":
-                chain = chain.sort_values("aarr", ascending=True)
+                sort_col = 'expected_aarr' if 'expected_aarr' in chain.columns else 'aarr'
+                chain = chain.sort_values(sort_col, ascending=True)
             elif sort_by == "Premium (Highest)":
                 chain = chain.sort_values("premium", ascending=False)
             elif sort_by == "Days to Expiry (Soonest)":
@@ -275,7 +271,11 @@ if "options_chain" in st.session_state:
     with col1:
         st.metric("Results", len(chain))
     with col2:
-        st.metric("Avg AARR", f"{chain['aarr'].mean():.1f}%")
+        # st.metric("Avg AARR", f"{chain['aarr'].mean():.1f}%")
+        if 'expected_aarr' in chain.columns:
+            st.metric("Avg Expected AARR", f"{chain['expected_aarr'].mean():.1f}%")
+        else:
+            st.metric("Avg AARR", f"{chain['aarr'].mean():.1f}%")
     with col3:
         st.metric("Avg Premium", f"${chain['premium'].mean():.2f}")
     with col4:
@@ -339,7 +339,9 @@ if "options_chain" in st.session_state:
             with cols[4]:
                 st.markdown(f"**Expires:** {exp}")
             with cols[5]:
-                aarr_color = "#44ff44" if aarr >= 20 else "#ffbb00" if aarr >= 10 else "#ffffff"
+                # Use expected AARR if available
+                display_aarr = row.get('expected_aarr', row['aarr'])
+                aarr_color = "#44ff44" if display_aarr >= 20 else "#ffbb00" if display_aarr >= 10 else "#ffffff"
                 
                 # Color code safety: green (8-10), yellow (5-7), red (0-4)
                 if safety_score >= 8:
@@ -352,7 +354,7 @@ if "options_chain" in st.session_state:
                     safety_color = "#ff4444"
                     safety_emoji = "🔴"
                 
-                st.markdown(f"<span style='color: {aarr_color}; font-weight: bold;'>AARR: {aarr:.1f}%</span><br>"
+                st.markdown(f"<span style='color: {aarr_color}; font-weight: bold;'>AARR: {display_aarr:.1f}%</span><br>"
                             f"<span style='color: {safety_color}; font-size: 0.9em;'>{safety_emoji} Safety: {safety_score:.1f}/10</span>", 
                             unsafe_allow_html=True)
             with cols[6]:

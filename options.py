@@ -81,7 +81,19 @@ def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, exp
 		)[0], axis=1
 	)
 
-	return result[["strike", "lastPrice", "expiration", "days_to_expiration", "aarr"]].rename(columns={
+	# Add Expected AARR (probability-weighted)
+	result["expected_aarr"] = result.apply(
+		lambda row: utils.calculate_expected_aarr_for_call(
+			strike=row["strike"],
+			premium=row["lastPrice"],
+			days_to_expiry=row["days_to_expiration"],
+			market_price=market_price,
+			# volatility=utils.get_implied_volatility_from_options(ticker, days_to_expiry=row["days_to_expiration"])
+			volatility=utils.get_historical_volatility(ticker, days=row["days_to_expiration"])
+		), axis=1
+	)
+
+	return result[["strike", "lastPrice", "expiration", "days_to_expiration", "aarr", "expected_aarr"]].rename(columns={
 		"lastPrice": "premium"
 	})
 

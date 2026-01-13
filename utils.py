@@ -84,73 +84,59 @@ def get_implied_volatility_from_options(ticker, days_to_expiry):
 
 def calculate_safety_score(strike, premium, market_price, days_to_expiry, volatility):
     """
-    Calculate safety score for a covered call based on probability-weighted outcomes.
-    Higher score = safer position.
-    
-    Logic:
-    - Deep ITM: Penalized because you're guaranteed to sell at below-market price
-    - ATM: Rewarded because outcome is in high-probability region
-    - OTM: Scored based on risk/reward tradeoff of premium vs potential missed gains
+    Safety = Low risk of losing money
+    High safety = High probability of profit, low downside risk
     """
     
-    # Generate price distribution
     if volatility is None or volatility <= 0:
-        # Without volatility, use simple distance metric
-        distance_penalty = 1 / (1 + abs(strike - market_price) / market_price)
-        premium_yield = (premium / market_price) * 100
-        return premium_yield * distance_penalty
+        volatility = 0.20
     
-    # Create price range around strike
+    # Calculate breakeven price
+    breakeven = market_price - premium
+    
+    # Generate price distribution
     price_range = np.linspace(market_price * 0.5, market_price * 2, 200)
     probabilities = calculate_price_probabilities(market_price, price_range, days_to_expiry, volatility)
     
-    # Find probability mass in different regions
-    prob_below_strike = sum(probabilities[price_range < strike])
-    prob_at_strike = sum(probabilities[(price_range >= strike * 0.98) & (price_range <= strike * 1.02)])
-    prob_above_strike = sum(probabilities[price_range > strike])
+    # Probability of profit (price stays above breakeven)
+    prob_profit = sum(probabilities[price_range >= breakeven])
     
-    premium_yield = (premium / market_price) * 100
+    # Downside protection (how far can stock drop before loss)
+    downside_buffer_pct = (market_price - breakeven) / market_price * 100
     
-    # Case 1: Deep ITM (strike < 95% of current)
-    if strike < market_price * 0.95:
-        # Penalty: You're selling at a loss
-        locked_loss_pct = (market_price - strike) / market_price * 100
-        # Even with premium, if you're giving up >5% in stock value, that's bad
-        net_position = premium_yield - locked_loss_pct
-        safety = max(0, net_position) * 0.5  # Heavy penalty for deep ITM
-        
-    # Case 2: ITM (95% <= strike < 100%)
-    elif strike < market_price:
-        # Moderate penalty but not as bad
-        locked_loss_pct = (market_price - strike) / market_price * 100
-        net_position = premium_yield - locked_loss_pct
-        safety = max(0, net_position) * 0.8
-        
-    # Case 3: ATM (100% <= strike <= 105%)
-    elif strike <= market_price * 1.05:
-        # Reward: You're in the high-probability region
-        # Safety = premium yield × probability of being near strike
-        safety = premium_yield * (prob_at_strike / 10) * 2.0  # Bonus for ATM
-        
-    # Case 4: OTM (105% < strike <= 115%)
-    elif strike <= market_price * 1.15:
-        # Calculate risk/reward
-        # If it executes: you get premium + gain to strike
-        # If it doesn't: you just get premium
-        potential_gain_pct = (strike - market_price) / market_price * 100
-        total_return = premium_yield + potential_gain_pct
-        
-        # Weight by probability of execution
-        expected_return = (prob_above_strike / 100) * total_return + (prob_below_strike / 100) * premium_yield
-        safety = expected_return * 1.2  # Slight bonus for OTM
-        
-    # Case 5: Deep OTM (strike > 115%)
-    else:
-        # Low probability of execution = just collecting small premium
-        # Safety is just premium yield, heavily discounted
-        safety = premium_yield * (prob_above_strike / 100) * 0.5
+    # Expected return calculation
+    expected_returns = []
+    for price, prob in zip(price_range, probabilities):
+        if price >= strike:
+            # Called away
+            ret = (strike + premium - market_price) / market_price * 100
+        else:
+            # Keep shares
+            ret = (price + premium - market_price) / market_price * 100
+        expected_returns.append(ret * prob / 100)
     
-    return max(0, safety)  # Ensure non-negative
+    expected_return = sum(expected_returns)
+    
+    # Risk/Reward ratio
+    max_loss_pct = ((breakeven - price_range.min()) / market_price * 100) if breakeven > price_range.min() else 100
+    risk_reward = expected_return / max_loss_pct if max_loss_pct > 0 else 0
+    
+    # Safety components (all 0-100 scale)
+    # 1. Probability of profit (40% weight) - most important
+    prob_component = prob_profit * 0.40
+    
+    # 2. Downside buffer (30% weight)
+    buffer_component = min(downside_buffer_pct / 10, 10) * 0.30  # Cap at 10%
+    
+    # 3. Expected return (20% weight)
+    return_component = min(max(0, expected_return), 20) * 0.20  # Cap at 20%
+    
+    # 4. Volatility penalty (10% weight)
+    vol_component = (1 - min(volatility, 0.5) / 0.5) * 10 * 0.10
+    
+    safety = (prob_component + buffer_component + return_component + vol_component) * 100
+    
+    return safety
 
 def normalize_safety_score(raw_score, all_scores):
     """
@@ -268,3 +254,40 @@ def compute_hold_aarr(num_shares, initial_market_price, final_market_price, days
     
     aarr = ((end_money / start_money) ** (365 / days) - 1) * 100
     return aarr, net_gain
+
+def calculate_expected_aarr_for_call(strike, premium, days_to_expiry, market_price, volatility):
+    """Calculate probability-weighted expected AARR for a single call option."""
+    if volatility is None or volatility <= 0:
+        # Fallback to simple AARR if no volatility
+        aarr, *_ = compute_aarr(
+            num_shares=100,
+            initial_market_price=market_price,
+            strike_price=strike,
+            premium=premium,
+            expiry=days_to_expiry,
+            final_market_price=None,
+            strike_out=True
+        )
+        return aarr
+    
+    # Generate price range
+    price_range = np.linspace(market_price * 0.5, market_price * 2, 100)
+    probabilities = calculate_price_probabilities(market_price, price_range, days_to_expiry, volatility)
+    
+    # Calculate AARR at each price point
+    aarr_values = []
+    for final_price in price_range:
+        aarr, *_ = compute_aarr(
+            num_shares=100,
+            initial_market_price=market_price,
+            strike_price=strike,
+            premium=premium,
+            expiry=days_to_expiry,
+            final_market_price=final_price,
+            strike_out=(final_price >= strike)
+        )
+        aarr_values.append(aarr)
+    
+    # Probability-weighted average
+    expected_aarr = np.average(aarr_values, weights=probabilities)
+    return expected_aarr

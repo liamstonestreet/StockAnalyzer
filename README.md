@@ -13,4 +13,4 @@ A program that analyzes stocks and recommends covered calls with fine-tuned para
 
 ## TODO
 - Implement Shadow Premium feature.
-- Fix safety calculation to be more accurate.
+- Fix safety calculation to be more accurate. (i.e. it says it's safe when strike << market)

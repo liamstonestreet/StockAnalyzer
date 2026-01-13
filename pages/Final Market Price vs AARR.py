@@ -237,15 +237,19 @@ with col3:
     st.metric("Premium Yield", f"{premium_yield:.1f}%")
 
 # Calculate safety score for this specific call
-safety_score_raw = calculate_safety_score(
-    strike=strike,
-    premium=premium,
-    market_price=initial_price,
-    days_to_expiry=expiry,
-    volatility=volatility
-)
-all_raw_scores = st.session_state.get("all_safety_scores_raw", [safety_score_raw])
-safety_normalized = normalize_safety_score(safety_score_raw, all_raw_scores)
+# safety_score_raw = calculate_safety_score(
+#     strike=strike,
+#     premium=premium,
+#     market_price=initial_price,
+#     days_to_expiry=expiry,
+#     volatility=volatility
+# )
+# all_raw_scores = st.session_state.get("all_safety_scores_raw", [safety_score_raw])
+# safety_normalized = normalize_safety_score(safety_score_raw, all_raw_scores)
+
+# Don't recalculate - just get the value that was already computed
+selected_call = st.session_state.get("selected_call")
+safety_normalized = selected_call.get("safety_score", 5.0)  # It's already in the dict!
 
 # Color code based on score
 if safety_normalized >= 7:
