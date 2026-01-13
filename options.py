@@ -1,9 +1,10 @@
-# options.py
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 import utils
+import streamlit as st
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, expiration_range=30):
 	"""
 	Fetch call options for a stock across all expiration dates within the given range [first,last].
@@ -26,7 +27,6 @@ def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, exp
 
 	# Set last_expiration to first_expiration if not provided
 	if last_expiration is None:
-		# last_expiration = first_expiration
 		last_expiration = first_expiration + timedelta(days=expiration_range)
 
 	# Convert int-based expirations to actual dates
@@ -55,7 +55,6 @@ def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, exp
 			opt_chain = stock.option_chain(exp)
 			calls = opt_chain.calls
 			calls["expiration"] = pd.to_datetime(exp)
-			# figure out why there needs to be + 1 here
 			calls["days_to_expiration"] = (calls["expiration"] - pd.Timestamp.now()).dt.days
 			all_calls.append(calls)
 		except Exception as e:
@@ -65,15 +64,19 @@ def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, exp
 		raise ValueError("Failed to retrieve any call data.")
 
 	result = pd.concat(all_calls, ignore_index=True)
-	# add AARR column (use computation)
+	
+	# Get current market price once
+	market_price = utils.get_market_price(ticker)
+	
+	# Add AARR column
 	result["aarr"] = result.apply(
 		lambda row: utils.compute_aarr(
-			num_shares=100,  # Assuming 1 contract = 100 shares
-			initial_market_price=utils.get_market_price(ticker),
+			num_shares=100,
+			initial_market_price=market_price,
 			strike_price=row["strike"],
 			premium=row["lastPrice"],
 			expiry=row["days_to_expiration"],
-			final_market_price=None,  # Assume shares are called away
+			final_market_price=None,
 			strike_out=True
 		)[0], axis=1
 	)
@@ -84,16 +87,13 @@ def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, exp
 
 
 def filter_conservative_calls(df, min_premium=0.5, max_days=6 * 30):
-	"""Filter calls based on Dad's rules! (Conservative, for the most part)"""
-	"""For now, we ignore filtering on delta by using max_delta=1. We can add it once we scrape the delta data."""
+	"""Filter calls based on conservative rules."""
 	return df[
 		(df["premium"] >= min_premium) &
 		(df["days_to_expiration"] <= max_days)
 	].sort_values(by="premium", ascending=False).reset_index(drop=True)
 
-# options.py
 
-# expiration_date must be "%d/%m/%Y" format, e.g. "30/12/2023"
 def filter_calls(df, strike_price, expiration_date=None):
 	"""Filter calls based on strike price and expiration date."""
 	if strike_price is not None:
@@ -102,7 +102,9 @@ def filter_calls(df, strike_price, expiration_date=None):
 		df = df[df["expiration"] == pd.to_datetime(expiration_date)]
 	return df
 
+@st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_stock_fundamentals(ticker: str, text_format=True):
+	"""Get fundamental data for a stock."""
 	stock = yf.Ticker(ticker)
 	info = stock.info
 	fundamentals = {
@@ -110,7 +112,7 @@ def get_stock_fundamentals(ticker: str, text_format=True):
 		"price": info.get("currentPrice"),
 		"market_cap": info.get("marketCap"),
 		"pe_ratio": info.get("trailingPE"),
-		"dividend_yield": info.get("dividendYield") / 100,
+		"dividend_yield": info.get("dividendYield", 0) / 100 if info.get("dividendYield") else 0,
 		"beta": info.get("beta"),
 		"52_week_high": info.get("fiftyTwoWeekHigh"),
 		"52_week_low": info.get("fiftyTwoWeekLow"),
@@ -123,15 +125,15 @@ def get_stock_fundamentals(ticker: str, text_format=True):
 		return fundamentals
 
 def get_fundamentals_text(fundamentals: dict, ticker: str):
+	"""Format fundamentals as readable text."""
 	return f"""
-		Stock Fundamentals for {ticker.upper()}:
-		- Current Price: ${fundamentals['price']:,}
-		- Market Cap: ${fundamentals['market_cap']:,}
-		- P/E Ratio: {fundamentals['pe_ratio']}
-		- Dividend Yield: {fundamentals['dividend_yield'] * 100:.2f}% (annual)
-		- Beta: {fundamentals['beta']}
-		- 52-Week Range: ${fundamentals['52_week_low']} - ${fundamentals['52_week_high']}
-		- Short % of Float: {fundamentals['short_percent'] * 100:.2f}%
-		- Earnings Date: {fundamentals['earnings_date']}
-		"""
-
+Stock Fundamentals for {ticker.upper()}:
+- Current Price: ${fundamentals['price']:,}
+- Market Cap: ${fundamentals['market_cap']:,}
+- P/E Ratio: {fundamentals['pe_ratio']}
+- Dividend Yield: {fundamentals['dividend_yield'] * 100:.2f}% (annual)
+- Beta: {fundamentals['beta']}
+- 52-Week Range: ${fundamentals['52_week_low']} - ${fundamentals['52_week_high']}
+- Short % of Float: {fundamentals['short_percent'] * 100:.2f}%
+- Earnings Date: {fundamentals['earnings_date']}
+"""
