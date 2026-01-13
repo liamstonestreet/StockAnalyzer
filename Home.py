@@ -13,9 +13,20 @@ st.title("📈 Covered Call Analyzer")
 st.markdown("Find optimal covered call opportunities with probability-weighted analysis")
 
 # Ticker input
+# col_ticker, col_price, col_vol = st.columns([2, 1, 1])
+# with col_ticker:
+#     ticker = st.text_input("Stock Ticker", value="AAPL", key="ticker_input")
+# Ticker input
 col_ticker, col_price, col_vol = st.columns([2, 1, 1])
 with col_ticker:
-    ticker = st.text_input("Stock Ticker", value="AAPL", key="ticker_input")
+    # Initialize session state for ticker if not exists
+    if "saved_ticker" not in st.session_state:
+        st.session_state.saved_ticker = "AAPL"
+    
+    ticker = st.text_input("Stock Ticker", 
+                          value=st.session_state.saved_ticker, 
+                          key="ticker_input",
+                          on_change=lambda: st.session_state.update({"saved_ticker": st.session_state.ticker_input}))
 
 # Show current market price and volatility
 market_price = None
@@ -30,6 +41,7 @@ with col_price:
         else:
             st.warning("Unable to fetch price")
 
+# Historical volatility
 with col_vol:
     if ticker:
         with st.spinner("Loading..."):
@@ -39,6 +51,7 @@ with col_vol:
         else:
             st.info("No volatility data")
 
+# Implied volatility (commented out for now)
 # with col_vol:
 #     if ticker:
 #         with st.spinner("Loading..."):
@@ -54,33 +67,87 @@ st.divider()
 # Filters
 st.subheader("🔍 Filters")
 
+# Initialize filter defaults in session state
+if "saved_first_exp" not in st.session_state:
+    st.session_state["saved_first_exp"] = 30
+if "saved_last_exp" not in st.session_state:
+    st.session_state["saved_last_exp"] = 90
+if "min_strike_price" not in st.session_state:
+    st.session_state["min_strike_price"] = 0.0
+if "max_strike_price" not in st.session_state:
+    st.session_state["max_strike_price"] = 99999.0
+if "min_premium" not in st.session_state:
+    st.session_state["min_premium"] = 0.0
+if "max_premium" not in st.session_state:
+    st.session_state["max_premium"] = 99999.0
+if "min_aarr" not in st.session_state:
+    st.session_state["min_aarr"] = 15.0
+if "max_aarr" not in st.session_state:
+    st.session_state["max_aarr"] = 200.0
+if "call_type_filter" not in st.session_state:
+    st.session_state["call_type_filter"] = ["🔴 Deep ITM", "🟠 ITM", "🟡 ATM"]
+if "sort_by" not in st.session_state:
+    st.session_state["sort_by"] = "AARR (Highest)"
+
 col1, col2 = st.columns(2)
 with col1:
-    first_exp = st.slider("First Expiration (days)", 0, 180, 30)
+    first_exp = st.slider("First Expiration (days)", 0, 180, 
+                         st.session_state["saved_first_exp"],
+                         key="first_exp_slider",
+                         on_change=lambda: st.session_state.update({"saved_first_exp": st.session_state["first_exp_slider"]}))
 with col2:
-    last_exp = st.slider("Last Expiration (days)", first_exp, 365, 90)
+    last_exp = st.slider("Last Expiration (days)", first_exp, 365, 
+                        st.session_state["saved_last_exp"],
+                        key="last_exp_slider",
+                        on_change=lambda: st.session_state.update({"saved_last_exp": st.session_state["last_exp_slider"]}))
 
 with st.expander("Advanced Filters", expanded=False):
     col3, col4 = st.columns(2)
     with col3:
         st.markdown("**Minimum Values**")
-        min_strike_price = st.number_input("Min Strike Price", value=0.0, format="%.2f")
-        min_premium = st.number_input("Min Premium", value=0.0, format="%.2f")
-        min_aarr = st.number_input("Min AARR %", value=15.0, format="%.2f")
+        min_strike_price = st.number_input("Min Strike Price", 
+                                           value=st.session_state["min_strike_price"], 
+                                           format="%.2f",
+                                           key="min_strike_price_input",
+                                           on_change=lambda: st.session_state.update({"min_strike_price": st.session_state["min_strike_price_input"]}))
+        min_premium = st.number_input("Min Premium", 
+                                      value=st.session_state["min_premium"], 
+                                      format="%.2f",
+                                      key="min_premium_input",
+                                      on_change=lambda: st.session_state.update({"min_premium": st.session_state["min_premium_input"]}))
+        min_aarr = st.number_input("Min AARR %", 
+                                   value=st.session_state["min_aarr"], 
+                                   format="%.2f",
+                                   key="min_aarr_input",
+                                   on_change=lambda: st.session_state.update({"min_aarr": st.session_state["min_aarr_input"]}))
     with col4:
         st.markdown("**Maximum Values**")
-        max_strike_price = st.number_input("Max Strike Price", value=99999.0, format="%.2f")
-        max_premium = st.number_input("Max Premium", value=99999.0, format="%.2f")
-        max_aarr = st.number_input("Max AARR %", value=200.0, format="%.2f")
-    
+        max_strike_price = st.number_input("Max Strike Price", 
+                                           value=st.session_state["max_strike_price"], 
+                                           format="%.2f",
+                                           key="max_strike_price_input",
+                                           on_change=lambda: st.session_state.update({"max_strike_price": st.session_state["max_strike_price_input"]}))
+        max_premium = st.number_input("Max Premium", 
+                                      value=st.session_state["max_premium"], 
+                                      format="%.2f",
+                                      key="max_premium_input",
+                                      on_change=lambda: st.session_state.update({"max_premium": st.session_state["max_premium_input"]}))
+        max_aarr = st.number_input("Max AARR %", 
+                                   value=st.session_state["max_aarr"], 
+                                   format="%.2f",
+                                   key="max_aarr_input",
+                                   on_change=lambda: st.session_state.update({"max_aarr": st.session_state["max_aarr_input"]}))
+
     st.divider()
     
     # Call type filter
     st.markdown("**Filter by Call Type**")
     call_type_filter = st.multiselect(
-        "Show only these types:",
+        "Show only these types:", 
         ["🔴 Deep ITM", "🟠 ITM", "🟡 ATM", "🟢 OTM", "🟢 Deep OTM"],
-        default=["🔴 Deep ITM", "🟠 ITM", "🟡 ATM", "🟢 OTM", "🟢 Deep OTM"]
+        default=st.session_state["call_type_filter"],
+        key="call_type_filter_input",
+        on_change=lambda: st.session_state.update({"call_type_filter": st.session_state["call_type_filter_input"]})
     )
 
 # Sort option
@@ -90,7 +157,12 @@ sort_by = st.selectbox("Sort by", [
     "Premium (Highest)", 
     "Days to Expiry (Soonest)",
     "Safety Score (Safest First)"
-])
+],
+    index=["AARR (Highest)", "AARR (Lowest)", "Premium (Highest)", 
+           "Days to Expiry (Soonest)", "Safety Score (Safest First)"].index(st.session_state["sort_by"]),
+    key="sort_by_input",
+    on_change=lambda: st.session_state.update({"sort_by": st.session_state["sort_by_input"]})
+)
 
 # Fetch button
 if st.button("🔎 Fetch Covered Calls", type="primary", use_container_width=True):
@@ -117,19 +189,38 @@ if st.button("🔎 Fetch Covered Calls", type="primary", use_container_width=Tru
             # Calculate safety score (higher = safer)
             # Safety = premium yield + inverse of how far strike is from current price
             if volatility:
-                # With volatility: factor in probability of reaching max AARR price
-                chain['safety_score'] = chain.apply(
-                    lambda row: (row['premium'] / market_price * 100) * 
-                                (1 - abs(row['strike'] - market_price) / market_price),
+                # Calculate safety score using probability-weighted analysis
+                # chain['safety_score'] = chain.apply(
+                #     lambda row: utils.calculate_safety_score(
+                #         strike=row['strike'],
+                #         premium=row['premium'],
+                #         market_price=market_price,
+                #         days_to_expiry=row['days_to_expiration'],
+                #         volatility=volatility
+                #     ),
+                #     axis=1
+                # )
+
+                # Calculate raw safety scores
+                chain['safety_score_raw'] = chain.apply(
+                    lambda row: utils.calculate_safety_score(
+                        strike=row['strike'],
+                        premium=row['premium'],
+                        market_price=market_price,
+                        days_to_expiry=row['days_to_expiration'],
+                        volatility=volatility
+                    ),
                     axis=1
                 )
-            else:
-                # Without volatility: just use premium yield and distance from current
-                chain['safety_score'] = chain.apply(
-                    lambda row: (row['premium'] / market_price * 100) * 
-                                (1 - abs(row['strike'] - market_price) / market_price),
-                    axis=1
+
+                # Normalize to 0-10 scale
+                chain['safety_score'] = chain['safety_score_raw'].apply(
+                    lambda x: utils.normalize_safety_score(x, chain['safety_score_raw'].values)
                 )
+                # Save raw scores to session state for graph page normalization
+                st.session_state["all_safety_scores_raw"] = chain['safety_score_raw'].values
+                st.session_state["all_safety_scores"] = chain['safety_score'].values
+
             
             # Apply call type filter
             if call_type_filter:
@@ -249,7 +340,21 @@ if "options_chain" in st.session_state:
                 st.markdown(f"**Expires:** {exp}")
             with cols[5]:
                 aarr_color = "#44ff44" if aarr >= 20 else "#ffbb00" if aarr >= 10 else "#ffffff"
-                st.markdown(f"<span style='color: {aarr_color}; font-weight: bold;'>AARR: {aarr:.1f}%</span><br><span style='color: #888; font-size: 0.85em;'>Safety: {safety_score:.1f}</span>", unsafe_allow_html=True)
+                
+                # Color code safety: green (8-10), yellow (5-7), red (0-4)
+                if safety_score >= 8:
+                    safety_color = "#44ff44"
+                    safety_emoji = "🟢"
+                elif safety_score >= 5:
+                    safety_color = "#ffbb00"
+                    safety_emoji = "🟡"
+                else:
+                    safety_color = "#ff4444"
+                    safety_emoji = "🔴"
+                
+                st.markdown(f"<span style='color: {aarr_color}; font-weight: bold;'>AARR: {aarr:.1f}%</span><br>"
+                            f"<span style='color: {safety_color}; font-size: 0.9em;'>{safety_emoji} Safety: {safety_score:.1f}/10</span>", 
+                            unsafe_allow_html=True)
             with cols[6]:
                 if st.button("View 📊", key=f"btn_{idx}", use_container_width=True):
                     st.session_state["selected_call"] = row.to_dict()

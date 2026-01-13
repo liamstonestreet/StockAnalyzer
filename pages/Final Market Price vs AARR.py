@@ -2,7 +2,8 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 import pandas as pd
-from utils import compute_aarr, compute_hold_aarr, calculate_price_probabilities
+from utils import compute_aarr, compute_hold_aarr, calculate_price_probabilities, calculate_safety_score, normalize_safety_score
+import utils
 
 st.set_page_config(page_title="Covered Call AARR Viewer", layout="wide")
 
@@ -71,8 +72,14 @@ probabilities = calculate_price_probabilities(initial_price, x_prices, expiry, v
 
 # Find key points
 x_zero = next((x for x, y in zip(x_prices, y_aarr_covered) if y >= 0), x_prices[0])
-x_breakeven_vs_hold = next((x for x, (yc, yh) in enumerate(zip(y_aarr_covered, y_aarr_hold)) 
-                            if yc <= yh and x >= initial_price), strike)
+# x_breakeven_vs_hold = next((x for x, (yc, yh) in enumerate(zip(y_aarr_covered, y_aarr_hold)) 
+#                             if yc <= yh and x >= initial_price), strike)
+# Find where covered call AARR drops below hold stock AARR (going upward from current price)
+x_breakeven_vs_hold = strike  # Default to strike if never crosses
+for i, (price, yc, yh) in enumerate(zip(x_prices, y_aarr_covered, y_aarr_hold)):
+    if price >= initial_price and yc <= yh:
+        x_breakeven_vs_hold = price
+        break
 
 # Find max AARR point
 max_aarr_idx = np.argmax(y_aarr_covered)
@@ -229,6 +236,30 @@ with col3:
     premium_yield = (premium / initial_price) * 100
     st.metric("Premium Yield", f"{premium_yield:.1f}%")
 
+# Calculate safety score for this specific call
+safety_score_raw = calculate_safety_score(
+    strike=strike,
+    premium=premium,
+    market_price=initial_price,
+    days_to_expiry=expiry,
+    volatility=volatility
+)
+all_raw_scores = st.session_state.get("all_safety_scores_raw", [safety_score_raw])
+safety_normalized = normalize_safety_score(safety_score_raw, all_raw_scores)
+
+# Color code based on score
+if safety_normalized >= 7:
+    delta_label = "Very Safe"
+    delta_color = "normal"
+elif safety_normalized >= 4:
+    delta_label = "Moderate"
+    delta_color = "off"
+else:
+    delta_label = "Risky"
+    delta_color = "inverse"
+
+st.metric("Safety Score", f"{safety_normalized}/10", delta_label, delta_color=delta_color)
+
 # Expected value analysis
 if volatility:
     st.divider()
@@ -279,12 +310,3 @@ else:
 # Back button
 if st.button("← Back to Calls"):
     st.switch_page("Home.py")
-
-# st.divider()
-# col1, col2, col3 = st.columns(3)
-# with col1:
-#     st.write(" ")
-# with col2:
-#     st.button("Go Back", on_click=go_back)
-# with col3:
-#     st.write(" ")

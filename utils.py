@@ -82,43 +82,106 @@ def get_implied_volatility_from_options(ticker, days_to_expiry):
     except:
         return None
 
-# def calculate_price_probabilities(current_price, target_prices, days_to_expiry, volatility):
-#     """
-#     Calculate probability of stock being at each target price at expiration.
-#     Uses log-normal distribution assumption.
+def calculate_safety_score(strike, premium, market_price, days_to_expiry, volatility):
+    """
+    Calculate safety score for a covered call based on probability-weighted outcomes.
+    Higher score = safer position.
     
-#     Returns array of probabilities (as percentages) for each target price.
-#     """
-#     if volatility is None or volatility <= 0:
-#         # Return uniform distribution if no volatility data
-#         return np.ones(len(target_prices)) * (100.0 / len(target_prices))
+    Logic:
+    - Deep ITM: Penalized because you're guaranteed to sell at below-market price
+    - ATM: Rewarded because outcome is in high-probability region
+    - OTM: Scored based on risk/reward tradeoff of premium vs potential missed gains
+    """
     
-#     # Time in years
-#     t = days_to_expiry / 365.0
+    # Generate price distribution
+    if volatility is None or volatility <= 0:
+        # Without volatility, use simple distance metric
+        distance_penalty = 1 / (1 + abs(strike - market_price) / market_price)
+        premium_yield = (premium / market_price) * 100
+        return premium_yield * distance_penalty
     
-#     # Log-normal parameters
-#     mu = np.log(current_price)
-#     sigma = volatility * np.sqrt(t)
+    # Create price range around strike
+    price_range = np.linspace(market_price * 0.5, market_price * 2, 200)
+    probabilities = calculate_price_probabilities(market_price, price_range, days_to_expiry, volatility)
     
-#     # Calculate probability density at each price point
-#     probabilities = []
-#     for price in target_prices:
-#         if price <= 0:
-#             probabilities.append(0)
-#             continue
+    # Find probability mass in different regions
+    prob_below_strike = sum(probabilities[price_range < strike])
+    prob_at_strike = sum(probabilities[(price_range >= strike * 0.98) & (price_range <= strike * 1.02)])
+    prob_above_strike = sum(probabilities[price_range > strike])
+    
+    premium_yield = (premium / market_price) * 100
+    
+    # Case 1: Deep ITM (strike < 95% of current)
+    if strike < market_price * 0.95:
+        # Penalty: You're selling at a loss
+        locked_loss_pct = (market_price - strike) / market_price * 100
+        # Even with premium, if you're giving up >5% in stock value, that's bad
+        net_position = premium_yield - locked_loss_pct
+        safety = max(0, net_position) * 0.5  # Heavy penalty for deep ITM
         
-#         # Log-normal PDF
-#         log_price = np.log(price)
-#         prob = (1 / (price * sigma * np.sqrt(2 * np.pi))) * \
-#                np.exp(-((log_price - mu) ** 2) / (2 * sigma ** 2))
-#         probabilities.append(prob)
+    # Case 2: ITM (95% <= strike < 100%)
+    elif strike < market_price:
+        # Moderate penalty but not as bad
+        locked_loss_pct = (market_price - strike) / market_price * 100
+        net_position = premium_yield - locked_loss_pct
+        safety = max(0, net_position) * 0.8
+        
+    # Case 3: ATM (100% <= strike <= 105%)
+    elif strike <= market_price * 1.05:
+        # Reward: You're in the high-probability region
+        # Safety = premium yield × probability of being near strike
+        safety = premium_yield * (prob_at_strike / 10) * 2.0  # Bonus for ATM
+        
+    # Case 4: OTM (105% < strike <= 115%)
+    elif strike <= market_price * 1.15:
+        # Calculate risk/reward
+        # If it executes: you get premium + gain to strike
+        # If it doesn't: you just get premium
+        potential_gain_pct = (strike - market_price) / market_price * 100
+        total_return = premium_yield + potential_gain_pct
+        
+        # Weight by probability of execution
+        expected_return = (prob_above_strike / 100) * total_return + (prob_below_strike / 100) * premium_yield
+        safety = expected_return * 1.2  # Slight bonus for OTM
+        
+    # Case 5: Deep OTM (strike > 115%)
+    else:
+        # Low probability of execution = just collecting small premium
+        # Safety is just premium yield, heavily discounted
+        safety = premium_yield * (prob_above_strike / 100) * 0.5
     
-#     # Normalize to percentage (approximate by area under curve)
-#     probs_array = np.array(probabilities)
-#     if probs_array.sum() > 0:
-#         probs_array = (probs_array / probs_array.sum()) * 100
+    return max(0, safety)  # Ensure non-negative
+
+def normalize_safety_score(raw_score, all_scores):
+    """
+    Normalize safety scores to 0-10 scale.
+    Uses percentile-based normalization so scores are relative to the dataset.
     
-#     return probs_array
+    10 = top 10% safest
+    5 = median
+    0 = bottom 10% (dangerous)
+    """
+    if len(all_scores) == 0:
+        return 5.0
+    
+    # Use percentile ranking
+    percentile = (all_scores < raw_score).sum() / len(all_scores) * 100
+    
+    # Map percentile to 0-10 scale
+    if percentile >= 90:
+        score = 9 + (percentile - 90) / 10  # 9-10 range
+    elif percentile >= 75:
+        score = 7.5 + (percentile - 75) / 15 * 1.5  # 7.5-9 range
+    elif percentile >= 50:
+        score = 5 + (percentile - 50) / 25 * 2.5  # 5-7.5 range
+    elif percentile >= 25:
+        score = 2.5 + (percentile - 25) / 25 * 2.5  # 2.5-5 range
+    elif percentile >= 10:
+        score = 1 + (percentile - 10) / 15 * 1.5  # 1-2.5 range
+    else:
+        score = percentile / 10  # 0-1 range
+    
+    return round(score, 1)
 
 def calculate_price_probabilities(current_price, target_prices, days_to_expiry, volatility):
     """
