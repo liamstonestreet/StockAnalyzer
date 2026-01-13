@@ -15,3 +15,4 @@ A program that analyzes stocks and recommends covered calls with fine-tuned para
 ## TODO
 1. Complete basic Streamlit UI to analyze AARR of covered calls and Final Market Price vs AARR graphs.
 2. Implement Shadow Premium feature
+3. Make the y-range on the plot page more accurate, less in the negatives.
