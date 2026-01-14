@@ -154,7 +154,7 @@ def calculate_safety_score(strike, premium, market_price, days_to_expiry, volati
     t = days_to_expiry / 365.0
     
     # Risk-free rate
-    r = 0.05
+    r = get_risk_free_rate()
     
     # Probability of striking out (delta)
     prob_strike_out = black_scholes_delta(market_price, strike, t, r, volatility, call=True)
@@ -212,7 +212,7 @@ def calculate_price_probabilities(current_price, target_prices, days_to_expiry, 
     """
     Calculate probability of stock being within a small range around each target price.
     Uses log-normal distribution (Black-Scholes assumption).
-    
+    NOTE: assumes 100 shares (1 contract)
     Returns array of probabilities (as percentages) for each target price.
     """
     if volatility is None or volatility <= 0:
@@ -332,3 +332,17 @@ def calculate_expected_aarr_for_call(strike, premium, days_to_expiry, market_pri
     # Probability-weighted average
     expected_aarr = np.average(aarr_values, weights=probabilities)
     return expected_aarr
+
+@st.cache_data(ttl=86400)  # Cache for 1 day
+def get_risk_free_rate():
+    """
+    Fetch current 3-month US Treasury rate as risk-free rate proxy.
+    Falls back to 4% if fetch fails.
+    """
+    try:
+        # Use ^IRX (13-week Treasury Bill rate)
+        treasury = yf.Ticker("^IRX")
+        rate = treasury.history(period="1d")['Close'].iloc[-1] / 100  # Convert from percentage
+        return rate if rate > 0 else 0.04
+    except:
+        return 0.04  # Default fallback

@@ -209,13 +209,13 @@ st.plotly_chart(fig, use_container_width=True)
 st.subheader("📋 Analysis")
 
 # Determine if ITM, ATM, or OTM
-if strike < initial_price * 0.95:
+if strike < initial_price * 0.85:
     call_type = "🔴 Deep ITM (In-The-Money)"
     call_explanation = "This call is guaranteed to execute. You're essentially selling now at a discount but getting paid a huge premium upfront."
 elif strike < initial_price:
     call_type = "🟠 ITM (In-The-Money)"
     call_explanation = "This call is very likely to execute. Lower upside potential but higher income now."
-elif strike <= initial_price * 1.05:
+elif strike <= initial_price * 1.15:
     call_type = "🟡 ATM (At-The-Money)"
     call_explanation = "Balanced risk/reward. Good premium with reasonable upside if stock rises."
 else:
@@ -225,14 +225,15 @@ else:
 st.info(f"**Call Type:** {call_type}\n\n{call_explanation}")
 
 col1, col2, col3 = st.columns(3)
+# col1, col2 = st.columns(2)
 with col1:
     st.metric("Breakeven Price", f"${x_zero:.2f}", 
               f"{((x_zero - initial_price) / initial_price * 100):.1f}%",
               delta_color="inverse")
+# with col2:
+#     st.metric("Max AARR", f"{y_max_aarr:.2f}%",
+#               f"@ ${x_max_aarr:.2f}")
 with col2:
-    st.metric("Max AARR", f"{y_max_aarr:.2f}%",
-              f"@ ${x_max_aarr:.2f}")
-with col3:
     premium_yield = (premium / initial_price) * 100
     st.metric("Premium Yield", f"{premium_yield:.1f}%")
 
@@ -262,8 +263,8 @@ elif safety_normalized >= 4:
 else:
     delta_label = "Risky"
     delta_color = "inverse"
-
-st.metric("Safety Score", f"{safety_normalized}/10", delta_label, delta_color=delta_color)
+with col3:
+    st.metric("Safety Score", f"{safety_normalized}/10", delta_label, delta_color=delta_color)
 
 # Expected value analysis
 if volatility:
