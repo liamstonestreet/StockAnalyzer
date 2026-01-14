@@ -126,7 +126,7 @@ def calculate_safety_score(strike, premium, market_price, days_to_expiry, volati
     prob_component = prob_profit * 0.40
     
     # 2. Downside buffer (30% weight)
-    buffer_component = min(downside_buffer_pct / 10, 10) * 0.30  # Cap at 10%
+    buffer_component = min(downside_buffer_pct / 10, 20) * 0.30  # Cap at 10%
     
     # 3. Expected return (20% weight)
     return_component = min(max(0, expected_return), 20) * 0.20  # Cap at 20%

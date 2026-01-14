@@ -250,6 +250,7 @@ with col3:
 # Don't recalculate - just get the value that was already computed
 selected_call = st.session_state.get("selected_call")
 safety_normalized = selected_call.get("safety_score", 5.0)  # It's already in the dict!
+safety_normalized = round(safety_normalized, 1) # 1 decimal
 
 # Color code based on score
 if safety_normalized >= 7:
