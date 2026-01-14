@@ -123,18 +123,19 @@ def calculate_safety_score(strike, premium, market_price, days_to_expiry, volati
     
     # Safety components (all 0-100 scale)
     # 1. Probability of profit (40% weight) - most important
-    prob_component = prob_profit * 0.40
+    prob_component = prob_profit * 0.50
     
     # 2. Downside buffer (30% weight)
-    buffer_component = min(downside_buffer_pct / 10, 20) * 0.30  # Cap at 10%
+    buffer_component = min(downside_buffer_pct / 10, 10) * 40.0  # Cap at 10%
     
     # 3. Expected return (20% weight)
-    return_component = min(max(0, expected_return), 20) * 0.20  # Cap at 20%
+    return_component = min(max(0, expected_return), 20) * 0.05  # Cap at 20%
     
     # 4. Volatility penalty (10% weight)
-    vol_component = (1 - min(volatility, 0.5) / 0.5) * 10 * 0.10
+    vol_component = (1 - min(volatility, 0.5) / 0.5) * 10 * 0.05
     
-    safety = (prob_component + buffer_component + return_component + vol_component) * 100
+    # safety = (prob_component + buffer_component + return_component + vol_component) * 100
+    safety = (prob_component + buffer_component) * 100
     
     return safety
 
