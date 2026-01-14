@@ -224,33 +224,27 @@ else:
 
 st.info(f"**Call Type:** {call_type}\n\n{call_explanation}")
 
-col1, col2, col3 = st.columns(3)
-# col1, col2 = st.columns(2)
+col1, col2, col3, col4 = st.columns(4)
+
 with col1:
+    # Max AARR (expiry = strike)
+    st.metric("Max AARR (expiry = strike)", f"{y_max_aarr:.2f}%",
+              f"@ ${x_max_aarr:.2f}")
+
+with col2:
     st.metric("Breakeven Price", f"${x_zero:.2f}", 
               f"{((x_zero - initial_price) / initial_price * 100):.1f}%",
               delta_color="inverse")
 # with col2:
 #     st.metric("Max AARR", f"{y_max_aarr:.2f}%",
 #               f"@ ${x_max_aarr:.2f}")
-with col2:
+with col3:
     premium_yield = (premium / initial_price) * 100
     st.metric("Premium Yield", f"{premium_yield:.1f}%")
 
-# Calculate safety score for this specific call
-# safety_score_raw = calculate_safety_score(
-#     strike=strike,
-#     premium=premium,
-#     market_price=initial_price,
-#     days_to_expiry=expiry,
-#     volatility=volatility
-# )
-# all_raw_scores = st.session_state.get("all_safety_scores_raw", [safety_score_raw])
-# safety_normalized = normalize_safety_score(safety_score_raw, all_raw_scores)
-
 # Don't recalculate - just get the value that was already computed
 selected_call = st.session_state.get("selected_call")
-safety_normalized = selected_call.get("safety_score", 5.0)  # It's already in the dict!
+safety_normalized = selected_call.get("safety_score_normalized", 5.0)  # It's already in the dict!
 safety_normalized = round(safety_normalized, 1) # 1 decimal
 
 # Color code based on score
@@ -263,7 +257,8 @@ elif safety_normalized >= 4:
 else:
     delta_label = "Risky"
     delta_color = "inverse"
-with col3:
+
+with col4:
     st.metric("Safety Score", f"{safety_normalized}/10", delta_label, delta_color=delta_color)
 
 # Expected value analysis
@@ -277,6 +272,10 @@ if volatility:
     with col2:
         st.metric("Expected AARR (Hold Stock)", f"{expected_aarr_hold:.2f}%")
     
+    # explain how the expected AARR is calculated
+    st.text("Expected AARR is the weighted average of all possible outcomes, where each outcome is weighted by its probability.")
+    st.text("It takes into account: 1) Probability of strike-out (delta) × Strike-out profit and 2) Probability of keeping shares (1 - delta) × Keep-shares profit. ")
+
     if expected_aarr_covered > expected_aarr_hold:
         st.success(f"✅ Covered call has {expected_aarr_covered - expected_aarr_hold:.1f}% higher expected return")
     else:
@@ -302,12 +301,12 @@ st.write(f"- 💰 **Returns:** \\${total_received:,.2f} total (\\${premium_recei
 
 # Profit/loss and protection
 if net_gain > 0:
-    st.write(f"- ✅ **Net gain:** \\${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%) • Downside protected to \\${x_zero:.2f}")
+    st.write(f"- ✅ **Net gain:** \\${net_gain:,.2f} ({(net_gain/initial_investment)*100:.1f}%)  •  Downside protected to \\${x_zero:.2f}")
 else:
-    st.write(f"- ❌ **Net loss:** \\${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%) • Downside protected to \\${x_zero:.2f}")
+    st.write(f"- ❌ **Net loss:** \\${abs(net_gain):,.2f} ({(net_gain/initial_investment)*100:.1f}%)  •  Downside protected to \\${x_zero:.2f}")
 
 # Optimal price and comparison
-st.write(f"- 🎯 **Max AARR:** \\${x_max_aarr:.2f} ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% move)")
+# st.write(f"- 🎯 **Max AARR:** \\${x_max_aarr:.2f} ({((x_max_aarr - initial_price) / initial_price * 100):.1f}% move)")
 if x_breakeven_vs_hold > initial_price:
     st.write(f"- 📈 **Strategy:** Beats holding if price stays below \\${x_breakeven_vs_hold:.2f}")
 else:

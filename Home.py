@@ -80,10 +80,10 @@ if "min_premium" not in st.session_state:
     st.session_state["min_premium"] = 0.0
 if "max_premium" not in st.session_state:
     st.session_state["max_premium"] = 99999.0
-if "min_aarr" not in st.session_state:
-    st.session_state["min_aarr"] = 15.0
-if "max_aarr" not in st.session_state:
-    st.session_state["max_aarr"] = 200.0
+if "min_aarr_filter" not in st.session_state:
+    st.session_state["min_aarr_filter"] = 15.0
+if "max_aarr_filter" not in st.session_state:
+    st.session_state["max_aarr_filter"] = 200.0
 if "call_type_filter" not in st.session_state:
     st.session_state["call_type_filter"] = ["🔴 Deep ITM", "🟠 ITM", "🟡 ATM", "🟢 OTM", "🟢 Deep OTM"]
 if "sort_by" not in st.session_state:
@@ -115,11 +115,11 @@ with st.expander("Advanced Filters", expanded=False):
                                       format="%.2f",
                                       key="min_premium_input",
                                       on_change=lambda: st.session_state.update({"min_premium": st.session_state["min_premium_input"]}))
-        min_aarr = st.number_input("Min AARR %", 
-                                   value=st.session_state["min_aarr"], 
+        min_aarr_filter = st.number_input("Min AARR %", 
+                                   value=st.session_state["min_aarr_filter"], 
                                    format="%.2f",
                                    key="min_aarr_input",
-                                   on_change=lambda: st.session_state.update({"min_aarr": st.session_state["min_aarr_input"]}))
+                                   on_change=lambda: st.session_state.update({"min_aarr_filter": st.session_state["min_aarr_input"]}))
     with col4:
         st.markdown("**Maximum Values**")
         max_strike_price = st.number_input("Max Strike Price", 
@@ -132,11 +132,11 @@ with st.expander("Advanced Filters", expanded=False):
                                       format="%.2f",
                                       key="max_premium_input",
                                       on_change=lambda: st.session_state.update({"max_premium": st.session_state["max_premium_input"]}))
-        max_aarr = st.number_input("Max AARR %", 
-                                   value=st.session_state["max_aarr"], 
+        max_aarr_filter = st.number_input("Max AARR %", 
+                                   value=st.session_state["max_aarr_filter"], 
                                    format="%.2f",
                                    key="max_aarr_input",
-                                   on_change=lambda: st.session_state.update({"max_aarr": st.session_state["max_aarr_input"]}))
+                                   on_change=lambda: st.session_state.update({"max_aarr_filter": st.session_state["max_aarr_input"]}))
 
     st.divider()
     
@@ -208,7 +208,7 @@ if st.button("🔎 Fetch Covered Calls", type="primary", use_container_width=Tru
 
                 # Store BOTH raw and normalized
                 st.session_state["all_safety_scores_raw"] = chain['safety_score_raw'].values
-                st.session_state["all_safety_scores_normalized"] = chain['safety_score'].values  # Add this
+                st.session_state["all_safety_scores"] = chain['safety_score'].values  # Add this
 
             
             # Apply call type filter
@@ -224,11 +224,11 @@ if st.button("🔎 Fetch Covered Calls", type="primary", use_container_width=Tru
                 chain = chain[chain["premium"] >= min_premium]
             if max_premium > 0:
                 chain = chain[chain["premium"] <= max_premium]
-            if min_aarr > 0:
-                chain = chain[chain["aarr"] >= min_aarr]
-            if max_aarr > 0:
-                chain = chain[chain["aarr"] <= max_aarr]
-            
+            if min_aarr_filter > 0:
+                chain = chain[chain["max_aarr"] >= min_aarr_filter]
+            if max_aarr_filter > 0:
+                chain = chain[chain["max_aarr"] <= max_aarr_filter]
+
             # Sort
             # if sort_by == "AARR (Highest)":
             #     chain = chain.sort_values("aarr", ascending=False)
@@ -275,7 +275,7 @@ if "options_chain" in st.session_state:
         if 'expected_aarr' in chain.columns:
             st.metric("Avg Expected AARR", f"{chain['expected_aarr'].mean():.1f}%")
         else:
-            st.metric("Avg AARR", f"{chain['aarr'].mean():.1f}%")
+            st.metric("Avg Max AARR", f"{chain['max_aarr'].mean():.1f}%")
     with col3:
         st.metric("Avg Premium", f"${chain['premium'].mean():.2f}")
     with col4:
@@ -299,7 +299,8 @@ if "options_chain" in st.session_state:
         strike = row["strike"]
         premium = row["premium"]
         exp = row["expiration"].date()
-        aarr = row["aarr"]
+        max_aarr = row["max_aarr"]
+        expected_aarr = row.get("expected_aarr", -9999) # NOTE this is the -9999 expected AARR fallback
         days = row["days_to_expiration"]
         call_type = row["call_type"]
         safety_score = row.get("safety_score", 0)
@@ -339,9 +340,9 @@ if "options_chain" in st.session_state:
             with cols[4]:
                 st.markdown(f"**Expires:** {exp}")
             with cols[5]:
-                # Use expected AARR if available
-                display_aarr = row.get('expected_aarr', row['aarr'])
-                aarr_color = "#44ff44" if display_aarr >= 20 else "#ffbb00" if display_aarr >= 10 else "#ffffff"
+                # Use expected AARR for the color, gives a more reliable AARR.
+                max_aarr_color = "#44ff44" if max_aarr >= 20 else "#ffbb00" if max_aarr >= 10 else "#A0A0A0"
+                expected_aarr_color = "#44ff44" if expected_aarr >= 20 else "#ffbb00" if expected_aarr >= 10 else "#A0A0A0"
                 
                 # Color code safety: green (8-10), yellow (5-7), red (0-4)
                 if safety_score >= 8:
@@ -354,8 +355,8 @@ if "options_chain" in st.session_state:
                     safety_color = "#ff4444"
                     safety_emoji = "🔴"
                 
-                st.markdown(f"<span style='color: {aarr_color}; font-weight: bold;'>AARR: {display_aarr:.1f}%</span><br>"
-                            f"<span style='color: {safety_color}; font-size: 0.9em;'>{safety_emoji} Safety: {safety_score:.1f}/10</span>", 
+                st.markdown(f"<span style='font-weight: bold;'> Max/Expected AARR: </span><span style='color: {max_aarr_color}; font-weight: bold;'>{max_aarr:.1f}%</span>/<span style='color: {expected_aarr_color}; font-weight: bold;'>{expected_aarr:.1f}%</span><br>"
+                            f"<span style='font-weight: bold;'> Safety: </span><span style='color: {safety_color}; font-size: 0.9em;'>{safety_emoji}{safety_score:.1f}/10</span>", 
                             unsafe_allow_html=True)
             with cols[6]:
                 if st.button("View 📊", key=f"btn_{idx}", use_container_width=True):

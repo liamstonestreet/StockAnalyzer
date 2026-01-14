@@ -82,63 +82,6 @@ def get_implied_volatility_from_options(ticker, days_to_expiry):
     except:
         return None
 
-# def calculate_safety_score(strike, premium, market_price, days_to_expiry, volatility):
-#     """
-#     Safety = Low risk of losing money
-#     High safety = High probability of profit, low downside risk
-#     """
-    
-#     if volatility is None or volatility <= 0:
-#         volatility = 0.20
-    
-#     # Calculate breakeven price
-#     breakeven = market_price - premium
-    
-#     # Generate price distribution
-#     price_range = np.linspace(market_price * 0.5, market_price * 2, 200)
-#     probabilities = calculate_price_probabilities(market_price, price_range, days_to_expiry, volatility)
-    
-#     # Probability of profit (price stays above breakeven)
-#     prob_profit = sum(probabilities[price_range >= breakeven])
-    
-#     # Downside protection (how far can stock drop before loss)
-#     downside_buffer_pct = (market_price - breakeven) / market_price * 100
-    
-#     # Expected return calculation
-#     expected_returns = []
-#     for price, prob in zip(price_range, probabilities):
-#         if price >= strike:
-#             # Called away
-#             ret = (strike + premium - market_price) / market_price * 100
-#         else:
-#             # Keep shares
-#             ret = (price + premium - market_price) / market_price * 100
-#         expected_returns.append(ret * prob / 100)
-    
-#     expected_return = sum(expected_returns)
-    
-#     # Risk/Reward ratio
-#     max_loss_pct = ((breakeven - price_range.min()) / market_price * 100) if breakeven > price_range.min() else 100
-#     risk_reward = expected_return / max_loss_pct if max_loss_pct > 0 else 0
-    
-#     # Safety components (all 0-100 scale)
-#     # 1. Probability of profit (40% weight) - most important
-#     prob_component = prob_profit * 0.50
-    
-#     # 2. Downside buffer (30% weight)
-#     buffer_component = min(downside_buffer_pct / 10, 10) * 40.0  # Cap at 10%
-    
-#     # 3. Expected return (20% weight)
-#     return_component = min(max(0, expected_return), 20) * 0.05  # Cap at 20%
-    
-#     # 4. Volatility penalty (10% weight)
-#     vol_component = (1 - min(volatility, 0.5) / 0.5) * 10 * 0.05
-    
-#     # safety = (prob_component + buffer_component + return_component + vol_component) * 100
-#     safety = (prob_component + buffer_component) * 100
-    
-#     return safety
-
 def calculate_safety_score(strike, premium, market_price, days_to_expiry, volatility):
     """
     Safety = Low risk of losing money
@@ -273,8 +216,6 @@ def compute_aarr(num_shares, initial_market_price, strike_price, premium, expiry
         # Shares are called away at strike price
         end_money = (strike_price + premium) * num_shares
     else:
-        # if final_market_price is None:
-        #     final_market_price = initial_market_price
         end_money = (final_market_price + premium) * num_shares
 
     net_gain = end_money - start_money
@@ -296,7 +237,7 @@ def compute_hold_aarr(num_shares, initial_market_price, final_market_price, days
     aarr = ((end_money / start_money) ** num_repeats - 1) * 100
     return aarr, net_gain
 
-def calculate_expected_aarr_for_call(strike, premium, days_to_expiry, market_price, volatility):
+def compute_expected_aarr_for_call(strike, premium, days_to_expiry, market_price, volatility):
     """Calculate probability-weighted expected AARR for a single call option."""
     if volatility is None or volatility <= 0:
         # Fallback to simple AARR if no volatility
@@ -315,7 +256,7 @@ def calculate_expected_aarr_for_call(strike, premium, days_to_expiry, market_pri
     price_range = np.linspace(market_price * 0.5, market_price * 2, 100)
     probabilities = calculate_price_probabilities(market_price, price_range, days_to_expiry, volatility)
     
-    # Calculate AARR at each price point
+    # Calculate AARR at each price point. 
     aarr_values = []
     for final_price in price_range:
         aarr, *_ = compute_aarr(

@@ -69,21 +69,21 @@ def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, exp
 	market_price = utils.get_market_price(ticker)
 	
 	# Add AARR column
-	result["aarr"] = result.apply(
+	result["max_aarr"] = result.apply(
 		lambda row: utils.compute_aarr(
 			num_shares=100,
 			initial_market_price=market_price,
 			strike_price=row["strike"],
 			premium=row["lastPrice"],
 			expiry=row["days_to_expiration"],
-			final_market_price=None,
+			final_market_price=row["strike"],  # Assume expiry price is at strike (this is always where max AARR is)
 			strike_out=True
 		)[0], axis=1
 	)
 
 	# Add Expected AARR (probability-weighted)
 	result["expected_aarr"] = result.apply(
-		lambda row: utils.calculate_expected_aarr_for_call(
+		lambda row: utils.compute_expected_aarr_for_call(
 			strike=row["strike"],
 			premium=row["lastPrice"],
 			days_to_expiry=row["days_to_expiration"],
@@ -93,7 +93,7 @@ def fetch_options_chain(ticker: str, first_expiration, last_expiration=None, exp
 		), axis=1
 	)
 
-	return result[["strike", "lastPrice", "expiration", "days_to_expiration", "aarr", "expected_aarr"]].rename(columns={
+	return result[["strike", "lastPrice", "expiration", "days_to_expiration", "max_aarr", "expected_aarr"]].rename(columns={
 		"lastPrice": "premium"
 	})
 
