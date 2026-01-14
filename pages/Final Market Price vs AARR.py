@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 import pandas as pd
-from utils import compute_aarr, compute_hold_aarr, calculate_price_probabilities, calculate_safety_score, normalize_safety_score
+from utils import compute_aarr, compute_hold_aarr, calculate_price_probabilities
 import utils
 
 st.set_page_config(page_title="Covered Call AARR Viewer", layout="wide")
