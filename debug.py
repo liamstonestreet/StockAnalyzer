@@ -20,6 +20,6 @@ import numpy as np
 # print()
 # print(fundamentals)
 
-arr = np.linspace(1, 10, 30)
-print(arr)
+# arr = np.linspace(1, 10, 30)
+# print(arr)
 
